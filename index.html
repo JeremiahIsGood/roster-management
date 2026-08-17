@@ -1,0 +1,1304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Roster</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flag-icons@7.2.3/css/flag-icons.min.css">
+<style>
+  :root{
+    --bg:#FFFFFF;
+    --bg-hover:#F7F6F3;
+    --bg-app:#FBFAF8;
+    --border:#E9E7E1;
+    --border-strong:#DAD7CE;
+    --text:#37352F;
+    --text-secondary:#8F8C82;
+    --text-faint:#B8B5AB;
+    --accent:#2F7A4D;
+    --accent-dark:#1F5636;
+    --accent-light:#E7F2EC;
+    --danger:#C0392B;
+    --danger-light:#FBEAE8;
+    --radius:6px;
+    --shadow-pop: 0 4px 16px rgba(0,0,0,0.10), 0 1px 2px rgba(0,0,0,0.06);
+    font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg-app);
+    color:var(--text);
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{
+    max-width:1180px;
+    margin:0 auto;
+    padding:40px 32px 80px;
+  }
+
+  /* ---------- Header ---------- */
+  .topbar{
+    display:flex;
+    align-items:flex-end;
+    justify-content:space-between;
+    margin-bottom:28px;
+    gap:20px;
+    flex-wrap:wrap;
+  }
+  .title-block h1{
+    font-family:'Inter Tight',sans-serif;
+    font-size:26px;
+    font-weight:700;
+    margin:0 0 4px;
+    letter-spacing:-0.01em;
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .title-block .pitch-dot{
+    width:10px;height:10px;border-radius:2px;
+    background:var(--accent);
+    display:inline-block;
+    transform:rotate(45deg);
+  }
+  .title-block p{
+    margin:0;
+    font-size:13px;
+    color:var(--text-secondary);
+  }
+
+  .toolbar{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-wrap:wrap;
+  }
+  select, button, input[type=file], input[type=search]{
+    font-family:inherit;
+    font-size:13px;
+  }
+  .btn{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding:7px 12px;
+    border-radius:var(--radius);
+    border:1px solid var(--border-strong);
+    background:var(--bg);
+    color:var(--text);
+    cursor:pointer;
+    font-weight:500;
+    transition:background 0.12s, border-color 0.12s;
+    white-space:nowrap;
+  }
+  .btn:hover{ background:var(--bg-hover); }
+  .btn:active{ transform:translateY(1px); }
+  .btn-primary{
+    background:var(--accent);
+    border-color:var(--accent);
+    color:#fff;
+  }
+  .btn-primary:hover{ background:var(--accent-dark); border-color:var(--accent-dark); }
+  .btn-ghost{
+    border-color:transparent;
+    background:transparent;
+    color:var(--text-secondary);
+  }
+  .btn-ghost:hover{ background:var(--bg-hover); color:var(--text); }
+  .btn svg{ width:14px; height:14px; flex-shrink:0; }
+
+  select{
+    padding:7px 28px 7px 10px;
+    border-radius:var(--radius);
+    border:1px solid var(--border-strong);
+    background:var(--bg) url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 10 10"><path d="M2 3.5L5 6.5L8 3.5" stroke="%238F8C82" stroke-width="1.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>') no-repeat right 10px center;
+    appearance:none;
+    -webkit-appearance:none;
+    color:var(--text);
+    cursor:pointer;
+  }
+  .search-box{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding:0 8px;
+    border:1px solid var(--border-strong);
+    border-radius:var(--radius);
+    background:var(--bg);
+    height:32px;
+  }
+  .search-box svg{
+    width:14px;
+    height:14px;
+    color:var(--text-secondary);
+    flex:0 0 auto;
+  }
+  .search-box input{
+    width:150px;
+    min-width:0;
+    border:none;
+    outline:none;
+    background:transparent;
+    color:var(--text);
+    padding:0;
+  }
+  .search-box input::placeholder{ color:var(--text-faint); }
+  .field-label{
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:0.04em;
+    color:var(--text-faint);
+    font-weight:600;
+    margin-right:2px;
+  }
+  #import-input, #club-emblem-input{ display:none; }
+
+  /* ---------- Table shell ---------- */
+  .table-card{
+    background:var(--bg);
+    border:1px solid var(--border);
+    border-radius:10px;
+    overflow:hidden;
+  }
+  table{
+    width:100%;
+    border-collapse:collapse;
+    table-layout:fixed;
+  }
+  colgroup col.c-name{ width:17%; }
+  colgroup col.c-nat{ width:13%; }
+  colgroup col.c-club{ width:15%; }
+  colgroup col.c-pos{ width:11%; }
+  colgroup col.c-bday{ width:13%; }
+  colgroup col.c-height{ width:10%; }
+  colgroup col.c-score{ width:15%; }
+  colgroup col.c-actions{ width:6%; }
+
+  thead th{
+    text-align:left;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:0.04em;
+    font-weight:600;
+    color:var(--text-secondary);
+    padding:10px 14px;
+    border-bottom:1px solid var(--border);
+    background:var(--bg);
+    user-select:none;
+  }
+  thead th.sortable{ cursor:pointer; }
+  thead th.sortable:hover{ color:var(--text); }
+  thead th .sort-arrow{
+    display:inline-block;
+    margin-left:4px;
+    font-size:10px;
+    color:var(--text-faint);
+  }
+  thead th.active-sort .sort-arrow{ color:var(--accent); }
+
+  tbody tr.player-row{
+    border-bottom:1px solid var(--border);
+    transition:background 0.1s;
+  }
+  tbody tr.player-row:hover{ background:var(--bg-hover); }
+  tbody tr.player-row:last-child{ border-bottom:none; }
+
+  td{
+    padding:0;
+    font-size:13.5px;
+    vertical-align:middle;
+    height:42px;
+  }
+  .cell{
+    display:flex;
+    align-items:center;
+    height:100%;
+    padding:0 14px;
+    cursor:text;
+    min-width:0;
+  }
+  .cell span.val{
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .cell.empty span.val{ color:var(--text-faint); font-style:italic; }
+  .cell input{
+    width:100%;
+    border:none;
+    outline:none;
+    background:transparent;
+    font-family:inherit;
+    font-size:13.5px;
+    color:var(--text);
+    padding:0;
+    height:100%;
+  }
+  .cell input:focus{ outline:none; }
+  .cell select{
+    width:100%;
+    min-width:0;
+    border:none;
+    outline:none;
+    background-color:transparent;
+    padding-left:0;
+  }
+  .name-cell .val{ font-weight:500; }
+  .country-flag.fi{
+    width:22px;
+    height:15px;
+    border-radius:2px;
+    box-shadow:0 0 0 1px rgba(0,0,0,0.08);
+    background-size:cover;
+  }
+  .club-display{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    min-width:0;
+    width:100%;
+  }
+  .club-emblem{
+    width:22px;
+    height:22px;
+    border-radius:4px;
+    object-fit:cover;
+    flex:0 0 auto;
+    border:1px solid var(--border);
+    background:var(--bg-hover);
+  }
+  .club-upload-btn{
+    opacity:0;
+    margin-left:auto;
+    flex:0 0 auto;
+    border:none;
+    background:transparent;
+    color:var(--text-faint);
+    border-radius:4px;
+    padding:4px;
+    cursor:pointer;
+    display:flex;
+  }
+  .cell:hover .club-upload-btn{ opacity:1; }
+  .club-upload-btn:hover{
+    color:var(--accent);
+    background:var(--accent-light);
+  }
+  .club-upload-btn svg{ width:14px; height:14px; }
+
+  /* position tag */
+  .tag{
+    display:inline-flex;
+    align-items:center;
+    padding:2px 8px;
+    border-radius:4px;
+    font-size:12px;
+    font-weight:500;
+    line-height:1.5;
+    max-width:100%;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+
+  /* score bar */
+  .score-cell{ padding:0 14px; }
+  .score-wrap{
+    position:relative;
+    height:24px;
+    width:100%;
+    background:var(--bg-hover);
+    border-radius:4px;
+    overflow:hidden;
+    cursor:text;
+  }
+  .score-bar{
+    position:absolute;
+    top:0; left:0; bottom:0;
+    background:var(--accent-light);
+    border-right:2px solid var(--accent);
+    transition:width 0.25s ease;
+  }
+  .score-num{
+    position:relative;
+    z-index:1;
+    height:100%;
+    display:flex;
+    align-items:center;
+    justify-content:flex-end;
+    padding:0 8px;
+    min-width:42px;
+    width:42px;
+    margin-left:auto;
+    background:linear-gradient(90deg, rgba(255,255,255,0), var(--bg-hover) 38%);
+    font-variant-numeric:tabular-nums;
+    font-weight:600;
+    font-size:12.5px;
+    color:var(--accent-dark);
+  }
+  .score-wrap input{
+    position:relative;
+    z-index:2;
+    height:100%;
+    width:100%;
+    background:transparent;
+    border:none;
+    outline:none;
+    padding:0 8px;
+    font-weight:600;
+    font-variant-numeric:tabular-nums;
+    color:var(--accent-dark);
+    font-family:inherit;
+    font-size:12.5px;
+  }
+
+  /* delete action */
+  .row-actions{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    height:100%;
+  }
+  .del-btn{
+    opacity:0;
+    background:none;
+    border:none;
+    cursor:pointer;
+    color:var(--text-faint);
+    padding:6px;
+    border-radius:4px;
+    display:flex;
+    transition:opacity 0.1s, color 0.1s, background 0.1s;
+  }
+  tr.player-row:hover .del-btn{ opacity:1; }
+  .del-btn:hover{ color:var(--danger); background:var(--danger-light); }
+  .del-btn svg{ width:15px; height:15px; }
+
+  /* add row */
+  .add-row{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:11px 14px;
+    color:var(--text-secondary);
+    font-size:13.5px;
+    cursor:pointer;
+    border-top:1px solid var(--border);
+    transition:background 0.1s, color 0.1s;
+  }
+  .add-row:hover{ background:var(--bg-hover); color:var(--text); }
+  .add-row svg{ width:15px; height:15px; }
+
+  /* group headers */
+  tr.group-row td{
+    padding:0;
+    height:auto;
+  }
+  .group-header{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:14px 14px 8px;
+    cursor:pointer;
+    user-select:none;
+  }
+  .group-header .chev{
+    width:14px;height:14px;
+    color:var(--text-faint);
+    transition:transform 0.15s;
+    flex-shrink:0;
+  }
+  .group-header.collapsed .chev{ transform:rotate(-90deg); }
+  .group-header .gname{
+    font-size:13px;
+    font-weight:600;
+    color:var(--text);
+  }
+  .group-header .gcount{
+    font-size:12px;
+    color:var(--text-faint);
+    font-weight:500;
+  }
+  tr.group-row:first-child .group-header{ padding-top:10px; }
+
+  /* empty state */
+  .empty-state{
+    text-align:center;
+    padding:64px 20px;
+  }
+  .empty-state h3{
+    font-size:15px;
+    font-weight:600;
+    margin:0 0 6px;
+    color:var(--text);
+  }
+  .empty-state p{
+    font-size:13px;
+    color:var(--text-secondary);
+    margin:0 0 18px;
+  }
+
+  .hint-bar{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-top:10px;
+    font-size:12px;
+    color:var(--text-faint);
+    padding:0 2px;
+  }
+  .warning-bar{
+    display:none;
+    align-items:flex-start;
+    gap:8px;
+    margin:0 0 12px;
+    padding:10px 12px;
+    border:1px solid #F1D19B;
+    background:#FFF7E8;
+    color:#6B4300;
+    border-radius:var(--radius);
+    font-size:13px;
+  }
+  .warning-bar svg{
+    width:15px;
+    height:15px;
+    flex:0 0 auto;
+    margin-top:1px;
+  }
+
+  @media (max-width: 900px){
+    .wrap{ padding:24px 16px 60px; }
+    colgroup col.c-nat, colgroup col.c-bday{ width:0; display:none; }
+    thead th:nth-child(2), thead th:nth-child(5),
+    tbody td:nth-child(2), tbody td:nth-child(5){ display:none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="topbar">
+    <div class="title-block">
+      <h1><span class="pitch-dot"></span>Roster</h1>
+      <p id="subtitle">0 players</p>
+    </div>
+    <div class="toolbar">
+      <span class="field-label">Group by</span>
+      <select id="group-select">
+        <option value="none">None</option>
+        <option value="club">Club</option>
+        <option value="nationality">Nationality</option>
+      </select>
+      <select id="filter-select" style="display:none;"></select>
+      <label class="search-box" title="Search players by name">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input type="search" id="search-input" placeholder="Search player">
+      </label>
+      <button class="btn btn-ghost" id="search-btn" title="Search players">
+        Search
+      </button>
+      <button class="btn btn-ghost" id="clear-search-btn" title="Clear player search" style="display:none;">
+        Clear
+      </button>
+
+      <button class="btn btn-ghost" id="export-btn" title="Export roster as JSON">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Export
+      </button>
+      <button class="btn btn-ghost" id="import-btn" title="Import roster from JSON">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Import
+      </button>
+      <input type="file" id="import-input" accept="application/json">
+      <input type="file" id="club-emblem-input" accept="image/*">
+      <button class="btn btn-primary" id="add-player-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add player
+      </button>
+    </div>
+  </div>
+
+  <div class="warning-bar" id="duplicate-warning">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+    <span id="duplicate-warning-text"></span>
+  </div>
+
+  <div class="table-card" id="table-card">
+    <!-- rendered by JS -->
+  </div>
+
+  <div class="hint-bar" id="hint-bar" style="display:none;">
+    <span>Click any cell to edit. Sorted by score.</span>
+    <span id="footer-note"></span>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------------- state ---------------- */
+  var players = [];
+  var idCounter = 1;
+  var pendingLogoPlayerId = null;
+  var state = {
+    groupBy: 'none',
+    filterValue: 'all',
+    sortDir: 'desc',
+    searchQuery: ''
+  };
+  var STORAGE_KEY = 'roster-management.players.v1';
+  var FIFA_ASSOCIATIONS = [
+    {name:'Afghanistan', code:'af'}, {name:'Albania', code:'al'}, {name:'Algeria', code:'dz'},
+    {name:'American Samoa', code:'as'}, {name:'Andorra', code:'ad'}, {name:'Angola', code:'ao'},
+    {name:'Anguilla', code:'ai'}, {name:'Antigua and Barbuda', code:'ag'}, {name:'Argentina', code:'ar'},
+    {name:'Armenia', code:'am'}, {name:'Aruba', code:'aw'}, {name:'Australia', code:'au'},
+    {name:'Austria', code:'at'}, {name:'Azerbaijan', code:'az'}, {name:'Bahamas', code:'bs'},
+    {name:'Bahrain', code:'bh'}, {name:'Bangladesh', code:'bd'}, {name:'Barbados', code:'bb'},
+    {name:'Belarus', code:'by'}, {name:'Belgium', code:'be'}, {name:'Belize', code:'bz'},
+    {name:'Benin', code:'bj'}, {name:'Bermuda', code:'bm'}, {name:'Bhutan', code:'bt'},
+    {name:'Bolivia', code:'bo'}, {name:'Bosnia and Herzegovina', code:'ba'}, {name:'Botswana', code:'bw'},
+    {name:'Brazil', code:'br'}, {name:'British Virgin Islands', code:'vg'}, {name:'Brunei Darussalam', code:'bn'},
+    {name:'Bulgaria', code:'bg'}, {name:'Burkina Faso', code:'bf'}, {name:'Burundi', code:'bi'},
+    {name:'Cabo Verde', code:'cv'}, {name:'Cambodia', code:'kh'}, {name:'Cameroon', code:'cm'},
+    {name:'Canada', code:'ca'}, {name:'Cayman Islands', code:'ky'}, {name:'Central African Republic', code:'cf'},
+    {name:'Chad', code:'td'}, {name:'Chile', code:'cl'}, {name:'China PR', code:'cn'},
+    {name:'Chinese Taipei', code:'tw'}, {name:'Colombia', code:'co'}, {name:'Comoros', code:'km'},
+    {name:'Congo', code:'cg'}, {name:'Congo DR', code:'cd'}, {name:'Cook Islands', code:'ck'},
+    {name:'Costa Rica', code:'cr'}, {name:"Cote d'Ivoire", code:'ci'}, {name:'Croatia', code:'hr'},
+    {name:'Cuba', code:'cu'}, {name:'Curacao', code:'cw'}, {name:'Cyprus', code:'cy'},
+    {name:'Czechia', code:'cz'}, {name:'Denmark', code:'dk'}, {name:'Djibouti', code:'dj'},
+    {name:'Dominica', code:'dm'}, {name:'Dominican Republic', code:'do'}, {name:'DPR Korea', code:'kp'},
+    {name:'Ecuador', code:'ec'}, {name:'Egypt', code:'eg'}, {name:'El Salvador', code:'sv'},
+    {name:'England', code:'gb-eng'}, {name:'Equatorial Guinea', code:'gq'}, {name:'Eritrea', code:'er'},
+    {name:'Estonia', code:'ee'}, {name:'Eswatini', code:'sz'}, {name:'Ethiopia', code:'et'},
+    {name:'Faroe Islands', code:'fo'}, {name:'Fiji', code:'fj'}, {name:'Finland', code:'fi'},
+    {name:'France', code:'fr'}, {name:'Gabon', code:'ga'}, {name:'Georgia', code:'ge'},
+    {name:'Germany', code:'de'}, {name:'Ghana', code:'gh'}, {name:'Gibraltar', code:'gi'},
+    {name:'Greece', code:'gr'}, {name:'Grenada', code:'gd'}, {name:'Guam', code:'gu'},
+    {name:'Guatemala', code:'gt'}, {name:'Guinea', code:'gn'}, {name:'Guinea-Bissau', code:'gw'},
+    {name:'Guyana', code:'gy'}, {name:'Haiti', code:'ht'}, {name:'Honduras', code:'hn'},
+    {name:'Hong Kong, China', code:'hk'}, {name:'Hungary', code:'hu'}, {name:'Iceland', code:'is'},
+    {name:'India', code:'in'}, {name:'Indonesia', code:'id'}, {name:'IR Iran', code:'ir'},
+    {name:'Iraq', code:'iq'}, {name:'Israel', code:'il'}, {name:'Italy', code:'it'},
+    {name:'Jamaica', code:'jm'}, {name:'Japan', code:'jp'}, {name:'Jordan', code:'jo'},
+    {name:'Kazakhstan', code:'kz'}, {name:'Kenya', code:'ke'}, {name:'Korea Republic', code:'kr'},
+    {name:'Kosovo', code:'xk'}, {name:'Kuwait', code:'kw'}, {name:'Kyrgyz Republic', code:'kg'},
+    {name:'Laos', code:'la'}, {name:'Latvia', code:'lv'}, {name:'Lebanon', code:'lb'},
+    {name:'Lesotho', code:'ls'}, {name:'Liberia', code:'lr'}, {name:'Libya', code:'ly'},
+    {name:'Liechtenstein', code:'li'}, {name:'Lithuania', code:'lt'}, {name:'Luxembourg', code:'lu'},
+    {name:'Macau', code:'mo'}, {name:'Madagascar', code:'mg'}, {name:'Malawi', code:'mw'},
+    {name:'Malaysia', code:'my'}, {name:'Maldives', code:'mv'}, {name:'Mali', code:'ml'},
+    {name:'Malta', code:'mt'}, {name:'Mauritania', code:'mr'}, {name:'Mauritius', code:'mu'},
+    {name:'Mexico', code:'mx'}, {name:'Moldova', code:'md'}, {name:'Mongolia', code:'mn'},
+    {name:'Montenegro', code:'me'}, {name:'Montserrat', code:'ms'}, {name:'Morocco', code:'ma'},
+    {name:'Mozambique', code:'mz'}, {name:'Myanmar', code:'mm'}, {name:'Namibia', code:'na'},
+    {name:'Nepal', code:'np'}, {name:'Netherlands', code:'nl'}, {name:'New Caledonia', code:'nc'},
+    {name:'New Zealand', code:'nz'}, {name:'Nicaragua', code:'ni'}, {name:'Niger', code:'ne'},
+    {name:'Nigeria', code:'ng'}, {name:'North Macedonia', code:'mk'}, {name:'Northern Ireland', code:'gb-nir'},
+    {name:'Norway', code:'no'}, {name:'Oman', code:'om'}, {name:'Pakistan', code:'pk'},
+    {name:'Palestine', code:'ps'}, {name:'Panama', code:'pa'}, {name:'Papua New Guinea', code:'pg'},
+    {name:'Paraguay', code:'py'}, {name:'Peru', code:'pe'}, {name:'Philippines', code:'ph'},
+    {name:'Poland', code:'pl'}, {name:'Portugal', code:'pt'}, {name:'Puerto Rico', code:'pr'},
+    {name:'Qatar', code:'qa'}, {name:'Republic of Ireland', code:'ie'}, {name:'Romania', code:'ro'},
+    {name:'Russia', code:'ru'}, {name:'Rwanda', code:'rw'}, {name:'Samoa', code:'ws'},
+    {name:'San Marino', code:'sm'}, {name:'Sao Tome and Principe', code:'st'}, {name:'Saudi Arabia', code:'sa'},
+    {name:'Scotland', code:'gb-sct'}, {name:'Senegal', code:'sn'}, {name:'Serbia', code:'rs'},
+    {name:'Seychelles', code:'sc'}, {name:'Sierra Leone', code:'sl'}, {name:'Singapore', code:'sg'},
+    {name:'Slovakia', code:'sk'}, {name:'Slovenia', code:'si'}, {name:'Solomon Islands', code:'sb'},
+    {name:'Somalia', code:'so'}, {name:'South Africa', code:'za'}, {name:'South Sudan', code:'ss'},
+    {name:'Spain', code:'es'}, {name:'Sri Lanka', code:'lk'}, {name:'St Kitts and Nevis', code:'kn'},
+    {name:'St Lucia', code:'lc'}, {name:'St Vincent and the Grenadines', code:'vc'}, {name:'Sudan', code:'sd'},
+    {name:'Suriname', code:'sr'}, {name:'Sweden', code:'se'}, {name:'Switzerland', code:'ch'},
+    {name:'Syria', code:'sy'}, {name:'Tahiti', code:'pf'}, {name:'Tajikistan', code:'tj'},
+    {name:'Tanzania', code:'tz'}, {name:'Thailand', code:'th'}, {name:'The Gambia', code:'gm'},
+    {name:'Timor-Leste', code:'tl'}, {name:'Togo', code:'tg'}, {name:'Tonga', code:'to'},
+    {name:'Trinidad and Tobago', code:'tt'}, {name:'Tunisia', code:'tn'}, {name:'Turkiye', code:'tr'},
+    {name:'Turkmenistan', code:'tm'}, {name:'Turks and Caicos Islands', code:'tc'}, {name:'Uganda', code:'ug'},
+    {name:'Ukraine', code:'ua'}, {name:'United Arab Emirates', code:'ae'}, {name:'Uruguay', code:'uy'},
+    {name:'US Virgin Islands', code:'vi'}, {name:'USA', code:'us'}, {name:'Uzbekistan', code:'uz'},
+    {name:'Vanuatu', code:'vu'}, {name:'Venezuela', code:'ve'}, {name:'Vietnam', code:'vn'},
+    {name:'Wales', code:'gb-wls'}, {name:'Yemen', code:'ye'}, {name:'Zambia', code:'zm'},
+    {name:'Zimbabwe', code:'zw'}
+  ];
+  var POSITION_OPTIONS = [
+    {value:'GK', label:'GK - Goalkeeper'},
+    {value:'DF', label:'DF - Defender'},
+    {value:'SW', label:'SW - Sweeper'},
+    {value:'CB', label:'CB - Center back'},
+    {value:'LB', label:'LB - Left back'},
+    {value:'RB', label:'RB - Right back'},
+    {value:'LWB', label:'LWB - Left wing back'},
+    {value:'RWB', label:'RWB - Right wing back'},
+    {value:'DM', label:'DM - Defensive midfielder'},
+    {value:'MF', label:'MF - Midfielder'},
+    {value:'CM', label:'CM - Central midfielder'},
+    {value:'AM', label:'AM - Attacking midfielder'},
+    {value:'LM', label:'LM - Left midfielder'},
+    {value:'RM', label:'RM - Right midfielder'},
+    {value:'LW', label:'LW - Left winger'},
+    {value:'RW', label:'RW - Right winger'},
+    {value:'CF', label:'CF - Center forward'},
+    {value:'ST', label:'ST - Striker'},
+    {value:'FW', label:'FW - Forward'}
+  ];
+  var countryOptions = FIFA_ASSOCIATIONS.slice().sort(function(a,b){ return a.name.localeCompare(b.name); });
+  var countryCodeByName = {};
+  countryOptions.forEach(function(country){ countryCodeByName[country.name] = country.code; });
+
+  var TAG_PALETTE = [
+    {bg:'#E6F1FB', fg:'#0C447C'},
+    {bg:'#EAF3DE', fg:'#27500A'},
+    {bg:'#FAEEDA', fg:'#633806'},
+    {bg:'#FCEBEB', fg:'#791F1F'},
+    {bg:'#FBEAF0', fg:'#72243E'},
+    {bg:'#EEEDFE', fg:'#3C3489'},
+    {bg:'#E1F5EE', fg:'#085041'},
+    {bg:'#FAECE7', fg:'#712B13'}
+  ];
+
+  function hashColor(str){
+    var h = 0;
+    for (var i=0;i<str.length;i++){ h = (h*31 + str.charCodeAt(i)) >>> 0; }
+    return TAG_PALETTE[h % TAG_PALETTE.length];
+  }
+
+  function uid(){ return 'p' + (idCounter++) + '_' + Math.random().toString(36).slice(2,7); }
+
+  function normalizeScore(value){
+    var n = Number(value);
+    if (!isFinite(n) || n < 0) return 0;
+    return Math.floor(n);
+  }
+
+  function normalizeAssociationName(name){
+    var aliases = {
+      'Brazil': 'Brazil',
+      'Czech Republic': 'Czechia',
+      'Cote d’Ivoire': "Cote d'Ivoire",
+      'Côte d’Ivoire': "Cote d'Ivoire",
+      "Côte d'Ivoire": "Cote d'Ivoire",
+      'Curacao': 'Curacao',
+      'Curaçao': 'Curacao',
+      'Iran': 'IR Iran',
+      'Laos': 'Laos',
+      'North Korea': 'DPR Korea',
+      'Republic of Korea': 'Korea Republic',
+      'Russia': 'Russia',
+      'Sao Tome and Principe': 'Sao Tome and Principe',
+      'São Tomé and Príncipe': 'Sao Tome and Principe',
+      'Turkey': 'Turkiye',
+      'Türkiye': 'Turkiye',
+      'United States': 'USA',
+      'United States of America': 'USA'
+    };
+    return aliases[name] || name || '';
+  }
+
+  function normalizePlayer(raw){
+    return {
+      id: raw.id || uid(),
+      name: raw.name || 'Untitled Player',
+      nationality: normalizeAssociationName(raw.nationality || ''),
+      club: raw.club || '',
+      clubLogo: raw.clubLogo || '',
+      position: raw.position || '',
+      birthday: raw.birthday || '',
+      height: raw.height === '' || raw.height == null ? '' : Number(raw.height),
+      score: normalizeScore(raw.score)
+    };
+  }
+
+  function loadPlayers(){
+    try {
+      var stored = localStorage.getItem(STORAGE_KEY);
+      if (stored){
+        var parsed = JSON.parse(stored);
+        var incoming = Array.isArray(parsed) ? parsed : parsed.players;
+        if (Array.isArray(incoming)) return incoming.map(normalizePlayer);
+      }
+    } catch (err){}
+    var seeded = samplePlayers().map(normalizePlayer);
+    savePlayers(seeded);
+    return seeded;
+  }
+
+  function savePlayers(list){
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({players: list || players}));
+    } catch (err){}
+  }
+
+  function countryFlag(countryName){
+    var code = countryCodeByName[countryName];
+    return code ? '<span class="fi fi-' + esc(code) + ' country-flag" aria-hidden="true"></span>' : '';
+  }
+
+  function countrySelectOptions(selected){
+    var html = '<option value="">Select country</option>';
+    countryOptions.forEach(function(country){
+      html += '<option value="' + esc(country.name) + '"' + (country.name === selected ? ' selected' : '') + '>' +
+        esc(country.name) +
+      '</option>';
+    });
+    return html;
+  }
+
+  function positionSelectOptions(selected){
+    var html = '<option value="">Select position</option>';
+    POSITION_OPTIONS.forEach(function(position){
+      html += '<option value="' + esc(position.value) + '"' + (position.value === selected ? ' selected' : '') + '>' +
+        esc(position.label) +
+      '</option>';
+    });
+    return html;
+  }
+
+  function samplePlayers(){
+    return [
+      {id: uid(), name:'Kenji Sato', nationality:'Japan', club:'FC Meridian', position:'MF', birthday:'1999-04-12', height:178, score:88},
+      {id: uid(), name:'Lucas Ferreira', nationality:'Brazil', club:'Riverside United', position:'FW', birthday:'2001-08-23', height:181, score:92},
+      {id: uid(), name:'Tomas Novak', nationality:'Czech Republic', club:'FC Meridian', position:'GK', birthday:'1997-01-05', height:191, score:79},
+      {id: uid(), name:'Ahmed Diallo', nationality:'Senegal', club:'Northgate SC', position:'DF', birthday:'2000-11-30', height:186, score:83}
+    ];
+  }
+
+  players = loadPlayers();
+
+  /* ---------------- helpers ---------------- */
+  function esc(str){
+    var d = document.createElement('div');
+    d.textContent = str == null ? '' : String(str);
+    return d.innerHTML;
+  }
+
+  function fmtDate(iso){
+    if (!iso) return '';
+    var parts = iso.split('-');
+    if (parts.length !== 3) return iso;
+    var d = new Date(Date.UTC(+parts[0], +parts[1]-1, +parts[2]));
+    if (isNaN(d.getTime())) return iso;
+    return d.toLocaleDateString('en-US', {year:'numeric', month:'short', day:'numeric', timeZone:'UTC'});
+  }
+
+  function maxScore(){
+    var m = 0;
+    players.forEach(function(p){ var s = normalizeScore(p.score); if (s > m) m = s; });
+    return m || 1;
+  }
+
+  function uniqueValues(field){
+    var seen = {};
+    var out = [];
+    players.forEach(function(p){
+      var v = (p[field] || '').trim();
+      if (v && !seen[v]){ seen[v] = true; out.push(v); }
+    });
+    out.sort(function(a,b){ return a.localeCompare(b); });
+    return out;
+  }
+
+  function visiblePlayers(){
+    var q = state.searchQuery.trim().toLowerCase();
+    if (!q) return players.slice();
+    return players.filter(function(p){
+      return (p.name || '').toLowerCase().indexOf(q) !== -1;
+    });
+  }
+
+  function duplicatePlayerNames(){
+    var counts = {};
+    var display = {};
+    players.forEach(function(p){
+      var name = (p.name || '').trim();
+      if (!name || name === 'Untitled Player') return;
+      var key = name.toLowerCase();
+      counts[key] = (counts[key] || 0) + 1;
+      display[key] = name;
+    });
+    return Object.keys(counts).filter(function(key){
+      return counts[key] > 1;
+    }).map(function(key){ return display[key]; }).sort(function(a,b){ return a.localeCompare(b); });
+  }
+
+  function updateDuplicateWarning(){
+    var warning = document.getElementById('duplicate-warning');
+    var text = document.getElementById('duplicate-warning-text');
+    if (!warning || !text) return;
+    var duplicates = duplicatePlayerNames();
+    if (duplicates.length === 0){
+      warning.style.display = 'none';
+      text.textContent = '';
+      return;
+    }
+    warning.style.display = 'flex';
+    text.textContent = 'Possible duplicate player' + (duplicates.length === 1 ? '' : 's') + ': ' + duplicates.join(', ');
+  }
+
+  /* ---------------- rendering ---------------- */
+  var collapsedGroups = {};
+
+  function render(){
+    var card = document.getElementById('table-card');
+    var subtitle = document.getElementById('subtitle');
+    var hintBar = document.getElementById('hint-bar');
+    var footerNote = document.getElementById('footer-note');
+
+    var shownPlayers = visiblePlayers();
+    subtitle.textContent = players.length + (players.length === 1 ? ' player' : ' players') +
+      (state.searchQuery ? (' - ' + shownPlayers.length + ' shown') : '');
+    updateDuplicateWarning();
+
+    if (players.length === 0){
+      hintBar.style.display = 'none';
+      card.innerHTML =
+        '<div class="empty-state">' +
+          '<h3>No players yet</h3>' +
+          '<p>Add your first player to start building the roster.</p>' +
+          '<button class="btn btn-primary" id="empty-add-btn">' +
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>' +
+            'Add player' +
+          '</button>' +
+        '</div>';
+      document.getElementById('empty-add-btn').addEventListener('click', addPlayer);
+      return;
+    }
+
+    hintBar.style.display = 'flex';
+    footerNote.textContent = [
+      state.groupBy !== 'none' ? ('Grouped by ' + (state.groupBy === 'club' ? 'club' : 'nationality')) : '',
+      state.searchQuery ? ('Search: ' + state.searchQuery) : ''
+    ].filter(Boolean).join(' · ');
+
+    var html = '<table>';
+    html += '<colgroup><col class="c-name"><col class="c-nat"><col class="c-club"><col class="c-pos"><col class="c-bday"><col class="c-height"><col class="c-score"><col class="c-actions"></colgroup>';
+    html += '<thead><tr>';
+    html += '<th>Name</th><th>Nationality</th><th>Club</th><th>Position</th><th>Birthday</th><th>Height</th>';
+    html += '<th class="sortable active-sort" id="score-header">Score<span class="sort-arrow">' + (state.sortDir === 'desc' ? '\u2193' : '\u2191') + '</span></th>';
+    html += '<th></th>';
+    html += '</tr></thead><tbody>';
+
+    var groups = buildGroups();
+    if (shownPlayers.length === 0){
+      html += '<tr><td colspan="8"><div class="empty-state">' +
+        '<h3>No matching players</h3>' +
+        '<p>Try a different player name.</p>' +
+      '</div></td></tr>';
+    }
+
+    groups.forEach(function(g){
+      if (g.key !== null){
+        var collapsed = !!collapsedGroups[g.key];
+        html += '<tr class="group-row"><td colspan="8">' +
+          '<div class="group-header' + (collapsed ? ' collapsed' : '') + '" data-group="' + esc(g.key) + '">' +
+            '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>' +
+            '<span class="gname">' + esc(g.key) + '</span>' +
+            '<span class="gcount">' + g.items.length + '</span>' +
+          '</div>' +
+        '</td></tr>';
+        if (collapsed) return;
+      }
+      g.items.forEach(function(p){ html += renderRow(p); });
+    });
+
+    html += '</tbody></table>';
+    html += '<div class="add-row" id="add-row-trigger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>New player</div>';
+
+    card.innerHTML = html;
+    attachRowHandlers();
+
+    document.getElementById('score-header').addEventListener('click', function(){
+      state.sortDir = state.sortDir === 'desc' ? 'asc' : 'desc';
+      render();
+    });
+    document.getElementById('add-row-trigger').addEventListener('click', addPlayer);
+
+    Array.prototype.forEach.call(document.querySelectorAll('.group-header'), function(el){
+      el.addEventListener('click', function(){
+        var key = el.getAttribute('data-group');
+        collapsedGroups[key] = !collapsedGroups[key];
+        render();
+      });
+    });
+  }
+
+  function buildGroups(){
+    var field = state.groupBy;
+    var basePlayers = visiblePlayers();
+
+    function sortFn(a, b){
+      var sa = normalizeScore(a.score), sb = normalizeScore(b.score);
+      return state.sortDir === 'desc' ? sb - sa : sa - sb;
+    }
+
+    if (field === 'none'){
+      var items = basePlayers.slice().sort(sortFn);
+      return [{key: null, items: items}];
+    }
+
+    var buckets = {};
+    var order = [];
+    basePlayers.forEach(function(p){
+      var v = (p[field] || '').trim() || 'Unspecified';
+      if (state.filterValue !== 'all' && v !== state.filterValue) return;
+      if (!buckets[v]){ buckets[v] = []; order.push(v); }
+      buckets[v].push(p);
+    });
+    order.sort(function(a,b){ return a.localeCompare(b); });
+    return order.map(function(key){
+      return {key: key, items: buckets[key].sort(sortFn)};
+    });
+  }
+
+  function editableCell(p, field, extraClass, placeholder){
+    var val = p[field] == null ? '' : p[field];
+    var display = field === 'birthday' ? fmtDate(val) : esc(val);
+    var isEmpty = val === '' || val == null;
+    return '<div class="cell ' + (extraClass||'') + (isEmpty ? ' empty' : '') + '" data-id="' + p.id + '" data-field="' + field + '">' +
+      '<span class="val">' + (isEmpty ? esc(placeholder || 'Empty') : display) + '</span>' +
+    '</div>';
+  }
+
+  function renderRow(p){
+    var max = maxScore();
+    var score = normalizeScore(p.score);
+    var pct = Math.max(0, Math.min(100, (score / max) * 100));
+    var posColor = p.position ? hashColor(p.position) : null;
+    var country = p.nationality || '';
+    var flag = country ? countryFlag(country) : '';
+    var club = p.club || '';
+    var clubLogo = p.clubLogo || '';
+    var clubCellInner = '<div class="club-display">' +
+      (clubLogo ? '<img class="club-emblem" src="' + esc(clubLogo) + '" alt="">' : '') +
+      '<span class="val">' + (club ? esc(club) : esc('Empty')) + '</span>' +
+      '<button class="club-upload-btn" data-logo="' + p.id + '" title="Upload club emblem" aria-label="Upload club emblem">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>' +
+      '</button>' +
+    '</div>';
+
+    var posCellInner = p.position
+      ? '<span class="tag" style="background:' + posColor.bg + ';color:' + posColor.fg + ';">' + esc(p.position) + '</span>'
+      : '<span class="val" style="color:var(--text-faint);font-style:italic;">Empty</span>';
+
+    var html = '<tr class="player-row" data-row-id="' + p.id + '">';
+    html += '<td class="name-cell">' + editableCell(p, 'name', 'name-cell', 'Untitled') + '</td>';
+    html += '<td><div class="cell' + (country ? '' : ' empty') + '" data-id="' + p.id + '" data-field="nationality" title="' + esc(country || 'Select country') + '">' +
+      (country ? flag : '<span class="val">' + esc('Empty') + '</span>') +
+    '</div></td>';
+    html += '<td><div class="cell' + (club ? '' : ' empty') + '" data-id="' + p.id + '" data-field="club">' + clubCellInner + '</div></td>';
+    html += '<td><div class="cell" data-id="' + p.id + '" data-field="position">' + posCellInner + '</div></td>';
+    html += '<td>' + editableCell(p, 'birthday', '', 'Set date') + '</td>';
+    html += '<td>' + editableCell(p, 'height', '', 'Set height') + (p.height ? '' : '') + '</td>';
+    html += '<td class="score-cell">' +
+      '<div class="score-wrap" data-id="' + p.id + '" data-field="score">' +
+        '<div class="score-bar" style="width:' + pct + '%;"></div>' +
+        '<div class="score-num">' + score + '</div>' +
+      '</div>' +
+    '</td>';
+    html += '<td><div class="row-actions"><button class="del-btn" data-del="' + p.id + '" title="Delete player" aria-label="Delete player">' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>' +
+    '</button></div></td>';
+    html += '</tr>';
+    return html;
+  }
+
+  /* ---------------- editing ---------------- */
+  function attachRowHandlers(){
+    Array.prototype.forEach.call(document.querySelectorAll('.cell[data-field]'), function(cell){
+      cell.addEventListener('click', function(){ beginEdit(cell); });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('.score-wrap'), function(cell){
+      cell.addEventListener('click', function(){ beginScoreEdit(cell); });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('.del-btn'), function(btn){
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        var id = btn.getAttribute('data-del');
+        deletePlayer(id);
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('.club-upload-btn'), function(btn){
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        pendingLogoPlayerId = btn.getAttribute('data-logo');
+        document.getElementById('club-emblem-input').click();
+      });
+    });
+  }
+
+  function beginEdit(cell){
+    if (cell.querySelector('input, select')) return;
+    var id = cell.getAttribute('data-id');
+    var field = cell.getAttribute('data-field');
+    var p = players.find(function(pl){ return pl.id === id; });
+    if (!p) return;
+
+    var current = p[field] == null ? '' : p[field];
+    if (field === 'nationality' || field === 'position'){
+      cell.innerHTML = '';
+      var select = document.createElement('select');
+      select.innerHTML = field === 'nationality' ? countrySelectOptions(current) : positionSelectOptions(current);
+      cell.appendChild(select);
+      select.focus();
+      var didCommitSelect = false;
+
+      function commitSelect(){
+        if (didCommitSelect) return;
+        didCommitSelect = true;
+        p[field] = select.value;
+        savePlayers();
+        updateFilterOptions();
+        render();
+      }
+
+      select.addEventListener('change', commitSelect);
+      select.addEventListener('blur', commitSelect);
+      select.addEventListener('keydown', function(e){
+        if (e.key === 'Escape'){
+          select.value = current;
+          select.blur();
+        }
+      });
+      return;
+    }
+
+    var inputType = 'text';
+    if (field === 'birthday') inputType = 'date';
+    if (field === 'height') inputType = 'number';
+
+    cell.innerHTML = '';
+    var input = document.createElement('input');
+    input.type = inputType;
+    input.value = current;
+    if (field === 'height'){ input.min = 0; input.step = 1; input.placeholder = 'cm'; }
+    if (field === 'position'){ input.placeholder = 'e.g. Forward'; }
+    cell.appendChild(input);
+    input.focus();
+    if (inputType === 'text') input.select();
+
+    function commit(){
+      var v = input.value;
+      if (field === 'height') v = v === '' ? '' : Number(v);
+      p[field] = v;
+      savePlayers();
+      updateFilterOptions();
+      render();
+    }
+    input.addEventListener('blur', commit);
+    input.addEventListener('keydown', function(e){
+      if (e.key === 'Enter'){ input.blur(); }
+      if (e.key === 'Escape'){ input.value = current; input.blur(); }
+    });
+  }
+
+  function beginScoreEdit(cell){
+    if (cell.querySelector('input')) return;
+    var id = cell.getAttribute('data-id');
+    var p = players.find(function(pl){ return pl.id === id; });
+    if (!p) return;
+    var current = Number(p.score) || 0;
+
+    var bar = cell.querySelector('.score-bar');
+    var num = cell.querySelector('.score-num');
+    if (bar) bar.style.display = 'none';
+    if (num) num.remove();
+
+    var input = document.createElement('input');
+    input.type = 'number';
+    input.value = current;
+    input.min = 0;
+    input.step = 1;
+    cell.appendChild(input);
+    input.focus();
+    input.select();
+
+    function commit(){
+      p.score = normalizeScore(input.value);
+      savePlayers();
+      render();
+    }
+    input.addEventListener('blur', commit);
+    input.addEventListener('keydown', function(e){
+      if (e.key === 'Enter'){ input.blur(); }
+      if (e.key === 'Escape'){ input.value = current; input.blur(); }
+    });
+  }
+
+  function addPlayer(){
+    var p = {
+      id: uid(),
+      name: 'Untitled Player',
+      nationality: '',
+      club: '',
+      clubLogo: '',
+      position: '',
+      birthday: '',
+      height: '',
+      score: 0
+    };
+    players.push(p);
+    savePlayers();
+    updateFilterOptions();
+    render();
+    setTimeout(function(){
+      var cell = document.querySelector('.cell[data-id="' + p.id + '"][data-field="name"]');
+      if (cell) beginEdit(cell);
+    }, 0);
+  }
+
+  function deletePlayer(id){
+    var p = players.find(function(pl){ return pl.id === id; });
+    if (!p) return;
+    if (!confirm('Delete ' + (p.name || 'this player') + ' from the roster?')) return;
+    players = players.filter(function(pl){ return pl.id !== id; });
+    savePlayers();
+    updateFilterOptions();
+    render();
+  }
+
+  /* ---------------- group / filter controls ---------------- */
+  var groupSelect = document.getElementById('group-select');
+  var filterSelect = document.getElementById('filter-select');
+
+  groupSelect.addEventListener('change', function(){
+    state.groupBy = groupSelect.value;
+    state.filterValue = 'all';
+    collapsedGroups = {};
+    updateFilterOptions();
+    render();
+  });
+
+  filterSelect.addEventListener('change', function(){
+    state.filterValue = filterSelect.value;
+    render();
+  });
+
+  function updateFilterOptions(){
+    if (state.groupBy === 'none'){
+      filterSelect.style.display = 'none';
+      return;
+    }
+    var values = uniqueValues(state.groupBy);
+    filterSelect.innerHTML = '<option value="all">All ' + (state.groupBy === 'club' ? 'clubs' : 'nationalities') + '</option>' +
+      values.map(function(v){
+        return '<option value="' + esc(v) + '">' + esc(v) + '</option>';
+      }).join('');
+    filterSelect.style.display = 'inline-block';
+  }
+
+  /* ---------------- search controls ---------------- */
+  var searchInput = document.getElementById('search-input');
+  var searchBtn = document.getElementById('search-btn');
+  var clearSearchBtn = document.getElementById('clear-search-btn');
+
+  function applySearch(){
+    state.searchQuery = searchInput.value.trim();
+    clearSearchBtn.style.display = state.searchQuery ? 'inline-flex' : 'none';
+    render();
+  }
+
+  searchBtn.addEventListener('click', applySearch);
+  searchInput.addEventListener('keydown', function(e){
+    if (e.key === 'Enter') applySearch();
+  });
+  clearSearchBtn.addEventListener('click', function(){
+    searchInput.value = '';
+    applySearch();
+  });
+
+  /* ---------------- import / export ---------------- */
+  document.getElementById('export-btn').addEventListener('click', function(){
+    var data = JSON.stringify({ players: players }, null, 2);
+    var blob = new Blob([data], {type: 'application/json'});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    var stamp = new Date().toISOString().slice(0,10);
+    a.download = 'roster-' + stamp + '.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+  document.getElementById('import-btn').addEventListener('click', function(){
+    document.getElementById('import-input').click();
+  });
+
+  document.getElementById('import-input').addEventListener('change', function(e){
+    var file = e.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(evt){
+      try {
+        var parsed = JSON.parse(evt.target.result);
+        var incoming = Array.isArray(parsed) ? parsed : parsed.players;
+        if (!Array.isArray(incoming)) throw new Error('No player list found in file.');
+
+        var replace = players.length === 0 || confirm(
+          'Import ' + incoming.length + ' player(s).\n\nOK = replace current roster\nCancel = add to current roster'
+        );
+
+        var cleaned = incoming.map(function(raw){
+          var player = normalizePlayer(raw);
+          player.id = uid();
+          return player;
+        });
+
+        players = replace ? cleaned : players.concat(cleaned);
+        collapsedGroups = {};
+        savePlayers();
+        updateFilterOptions();
+        render();
+      } catch (err){
+        alert('Could not import this file: ' + err.message);
+      } finally {
+        e.target.value = '';
+      }
+    };
+    reader.readAsText(file);
+  });
+
+  document.getElementById('club-emblem-input').addEventListener('change', function(e){
+    var file = e.target.files[0];
+    var id = pendingLogoPlayerId;
+    pendingLogoPlayerId = null;
+    if (!file || !id) {
+      e.target.value = '';
+      return;
+    }
+    if (!file.type || file.type.indexOf('image/') !== 0){
+      alert('Please choose an image file for the club emblem.');
+      e.target.value = '';
+      return;
+    }
+    var reader = new FileReader();
+    reader.onload = function(evt){
+      var p = players.find(function(pl){ return pl.id === id; });
+      if (!p) return;
+      p.clubLogo = evt.target.result;
+      savePlayers();
+      render();
+    };
+    reader.onerror = function(){
+      alert('Could not read that image file.');
+    };
+    reader.onloadend = function(){
+      e.target.value = '';
+    };
+    reader.readAsDataURL(file);
+  });
+
+  document.getElementById('add-player-btn').addEventListener('click', addPlayer);
+
+  /* ---------------- init ---------------- */
+  updateFilterOptions();
+  render();
+})();
+</script>
+</body>
+</html>
