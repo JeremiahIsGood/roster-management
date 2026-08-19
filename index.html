@@ -470,6 +470,158 @@
     margin-top:1px;
   }
 
+  /* group header score summary */
+  .gtotal{
+    font-size:12px;
+    color:var(--accent-dark);
+    font-weight:600;
+    margin-left:2px;
+    padding:2px 8px;
+    background:var(--accent-light);
+    border-radius:4px;
+  }
+
+  /* ---------- Rankings modal ---------- */
+  .modal-overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(55,53,47,0.35);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:100;
+    padding:24px;
+  }
+  .modal-panel{
+    background:var(--bg);
+    border-radius:12px;
+    box-shadow:var(--shadow-pop);
+    width:100%;
+    max-width:640px;
+    max-height:min(680px, 88vh);
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+  }
+  .modal-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:18px 20px 12px;
+    flex:0 0 auto;
+  }
+  .modal-header h2{
+    margin:0;
+    font-family:'Inter Tight',sans-serif;
+    font-size:18px;
+    font-weight:700;
+    letter-spacing:-0.01em;
+  }
+  .modal-close{
+    border:none;
+    background:transparent;
+    color:var(--text-secondary);
+    cursor:pointer;
+    padding:6px;
+    border-radius:6px;
+    display:flex;
+  }
+  .modal-close:hover{ background:var(--bg-hover); color:var(--text); }
+  .modal-close svg{ width:16px; height:16px; }
+  .modal-tabs{
+    display:flex;
+    gap:4px;
+    padding:0 20px;
+    border-bottom:1px solid var(--border);
+    flex:0 0 auto;
+  }
+  .modal-tab{
+    border:none;
+    background:transparent;
+    padding:9px 4px;
+    margin-bottom:-1px;
+    font-size:13px;
+    font-weight:600;
+    color:var(--text-secondary);
+    cursor:pointer;
+    border-bottom:2px solid transparent;
+  }
+  .modal-tab + .modal-tab{ margin-left:14px; }
+  .modal-tab:hover{ color:var(--text); }
+  .modal-tab.active{ color:var(--accent-dark); border-bottom-color:var(--accent); }
+  .modal-body{
+    overflow-y:auto;
+    padding:8px 20px 20px;
+    flex:1 1 auto;
+  }
+  table.rank-table{
+    width:100%;
+    border-collapse:collapse;
+  }
+  table.rank-table thead th{
+    position:sticky;
+    top:0;
+    background:var(--bg);
+    text-align:left;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:0.04em;
+    font-weight:600;
+    color:var(--text-secondary);
+    padding:8px 8px;
+    border-bottom:1px solid var(--border);
+    cursor:pointer;
+    user-select:none;
+    white-space:nowrap;
+  }
+  table.rank-table thead th:hover{ color:var(--text); }
+  table.rank-table thead th.active-sort{ color:var(--accent-dark); }
+  table.rank-table thead th .sort-arrow{
+    display:inline-block;
+    margin-left:3px;
+    font-size:9px;
+    color:var(--text-faint);
+  }
+  table.rank-table thead th.active-sort .sort-arrow{ color:var(--accent); }
+  table.rank-table td{
+    padding:9px 8px;
+    font-size:13px;
+    border-bottom:1px solid var(--border);
+    vertical-align:middle;
+  }
+  table.rank-table tbody tr:last-child td{ border-bottom:none; }
+  table.rank-table tbody tr:hover{ background:var(--bg-hover); }
+  .rank-num{
+    font-variant-numeric:tabular-nums;
+    color:var(--text-faint);
+    font-weight:600;
+    width:28px;
+  }
+  .rank-name{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-weight:500;
+    min-width:0;
+  }
+  .rank-name span.val{
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .rank-total, .rank-avg, .rank-count{
+    font-variant-numeric:tabular-nums;
+    text-align:right;
+    white-space:nowrap;
+  }
+  .rank-total{ font-weight:600; color:var(--accent-dark); }
+  .rank-empty{
+    text-align:center;
+    padding:36px 12px;
+    color:var(--text-secondary);
+    font-size:13px;
+  }
+
   @media (max-width: 900px){
     .wrap{ padding:24px 16px 60px; }
     colgroup col.c-nat, colgroup col.c-bday{ width:0; display:none; }
@@ -505,6 +657,10 @@
         Clear
       </button>
 
+      <button class="btn btn-ghost" id="rankings-btn" title="View club and nationality rankings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0V4Z"/><path d="M7 5H4a2 2 0 0 0 0 4h1"/><path d="M17 5h3a2 2 0 0 1 0 4h-1"/></svg>
+        Rankings
+      </button>
       <button class="btn btn-ghost" id="export-btn" title="Export roster as JSON">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         Export
@@ -537,6 +693,25 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="rankings-overlay" style="display:none;">
+  <div class="modal-panel">
+    <div class="modal-header">
+      <h2>Rankings</h2>
+      <button class="modal-close" id="rankings-close" aria-label="Close rankings" title="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-tabs">
+      <button class="modal-tab active" id="rankings-tab-club" data-tab="club">By Club</button>
+      <button class="modal-tab" id="rankings-tab-nationality" data-tab="nationality">By Nationality</button>
+    </div>
+    <div class="modal-body" id="rankings-body">
+      <!-- rendered by JS -->
+    </div>
+  </div>
+</div>
+
+
 <script>
 (function(){
   "use strict";
@@ -544,12 +719,19 @@
   /* ---------------- state ---------------- */
   var players = [];
   var idCounter = 1;
-  var pendingLogoPlayerId = null;
+  var pendingLogoClub = null;
+  var clubLogos = {};
   var state = {
     groupBy: 'none',
     filterValue: 'all',
     sortDir: 'desc',
     searchQuery: ''
+  };
+  var rankingsState = {
+    open: false,
+    tab: 'club',
+    sortField: 'total',
+    sortDir: 'desc'
   };
   var STORAGE_KEY = 'roster-management.players.v1';
   var FIFA_ASSOCIATIONS = [
@@ -705,7 +887,6 @@
       name: raw.name || 'Untitled Player',
       nationality: normalizeAssociationName(raw.nationality || ''),
       club: raw.club || '',
-      clubLogo: raw.clubLogo || '',
       position: raw.position || '',
       birthday: raw.birthday || '',
       height: raw.height === '' || raw.height == null ? '' : Number(raw.height),
@@ -719,7 +900,18 @@
       if (stored){
         var parsed = JSON.parse(stored);
         var incoming = Array.isArray(parsed) ? parsed : parsed.players;
-        if (Array.isArray(incoming)) return incoming.map(normalizePlayer);
+        if (parsed && !Array.isArray(parsed) && parsed.clubLogos && typeof parsed.clubLogos === 'object'){
+          clubLogos = parsed.clubLogos;
+        }
+        if (Array.isArray(incoming)){
+          var loaded = incoming.map(normalizePlayer);
+          // migrate any legacy per-player clubLogo values into the club-keyed store
+          incoming.forEach(function(raw){
+            var key = (raw.club || '').trim();
+            if (key && raw.clubLogo && !clubLogos[key]) clubLogos[key] = raw.clubLogo;
+          });
+          return loaded;
+        }
       }
     } catch (err){}
     var seeded = samplePlayers().map(normalizePlayer);
@@ -729,7 +921,7 @@
 
   function savePlayers(list){
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({players: list || players}));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({players: list || players, clubLogos: clubLogos}));
     } catch (err){}
   }
 
@@ -897,7 +1089,8 @@
           '<div class="group-header' + (collapsed ? ' collapsed' : '') + '" data-group="' + esc(g.key) + '">' +
             '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>' +
             '<span class="gname">' + esc(g.key) + '</span>' +
-            '<span class="gcount">' + g.items.length + '</span>' +
+            '<span class="gcount">' + g.items.length + (g.items.length === 1 ? ' player' : ' players') + '</span>' +
+            '<span class="gtotal">&Sigma; ' + g.total + '</span>' +
           '</div>' +
         '</td></tr>';
         if (collapsed) return;
@@ -950,8 +1143,101 @@
     });
     order.sort(function(a,b){ return a.localeCompare(b); });
     return order.map(function(key){
-      return {key: key, items: buckets[key].sort(sortFn)};
+      var items = buckets[key].sort(sortFn);
+      var total = items.reduce(function(sum, p){ return sum + normalizeScore(p.score); }, 0);
+      return {key: key, items: items, total: total};
     });
+  }
+
+  /* ---------------- rankings modal ---------------- */
+  function computeRankings(field){
+    var buckets = {};
+    var order = [];
+    players.forEach(function(p){
+      var v = (p[field] || '').trim() || 'Unspecified';
+      if (!buckets[v]){ buckets[v] = []; order.push(v); }
+      buckets[v].push(p);
+    });
+    var rows = order.map(function(key){
+      var items = buckets[key];
+      var total = items.reduce(function(sum, p){ return sum + normalizeScore(p.score); }, 0);
+      var count = items.length;
+      var avg = count ? total / count : 0;
+      return {name: key, count: count, total: total, avg: avg};
+    });
+    rows.sort(function(a, b){
+      var av = a[rankingsState.sortField], bv = b[rankingsState.sortField];
+      var diff = rankingsState.sortDir === 'desc' ? bv - av : av - bv;
+      if (diff !== 0) return diff;
+      return a.name.localeCompare(b.name);
+    });
+    return rows;
+  }
+
+  function renderRankings(){
+    var body = document.getElementById('rankings-body');
+    var field = rankingsState.tab;
+    var rows = computeRankings(field);
+
+    document.getElementById('rankings-tab-club').classList.toggle('active', field === 'club');
+    document.getElementById('rankings-tab-nationality').classList.toggle('active', field === 'nationality');
+
+    if (rows.length === 0){
+      body.innerHTML = '<div class="rank-empty">No players yet.</div>';
+      return;
+    }
+
+    function arrow(f){
+      if (rankingsState.sortField !== f) return '';
+      return '<span class="sort-arrow">' + (rankingsState.sortDir === 'desc' ? '\u2193' : '\u2191') + '</span>';
+    }
+    function sortClass(f){ return rankingsState.sortField === f ? ' active-sort' : ''; }
+
+    var html = '<table class="rank-table"><thead><tr>';
+    html += '<th class="rank-num">#</th>';
+    html += '<th>' + (field === 'club' ? 'Club' : 'Nationality') + '</th>';
+    html += '<th class="sortable' + sortClass('count') + '" data-sort="count" style="text-align:right;">Players' + arrow('count') + '</th>';
+    html += '<th class="sortable' + sortClass('total') + '" data-sort="total" style="text-align:right;">Total' + arrow('total') + '</th>';
+    html += '<th class="sortable' + sortClass('avg') + '" data-sort="avg" style="text-align:right;">Average' + arrow('avg') + '</th>';
+    html += '</tr></thead><tbody>';
+
+    rows.forEach(function(row, i){
+      var flag = field === 'nationality' ? countryFlag(row.name) : '';
+      html += '<tr>';
+      html += '<td class="rank-num">' + (i + 1) + '</td>';
+      html += '<td><div class="rank-name">' + flag + '<span class="val">' + esc(row.name) + '</span></div></td>';
+      html += '<td class="rank-count">' + row.count + '</td>';
+      html += '<td class="rank-total">' + row.total + '</td>';
+      html += '<td class="rank-avg">' + row.avg.toFixed(1) + '</td>';
+      html += '</tr>';
+    });
+
+    html += '</tbody></table>';
+    body.innerHTML = html;
+
+    Array.prototype.forEach.call(body.querySelectorAll('th[data-sort]'), function(th){
+      th.addEventListener('click', function(){
+        var f = th.getAttribute('data-sort');
+        if (rankingsState.sortField === f){
+          rankingsState.sortDir = rankingsState.sortDir === 'desc' ? 'asc' : 'desc';
+        } else {
+          rankingsState.sortField = f;
+          rankingsState.sortDir = 'desc';
+        }
+        renderRankings();
+      });
+    });
+  }
+
+  function openRankings(){
+    rankingsState.open = true;
+    document.getElementById('rankings-overlay').style.display = 'flex';
+    renderRankings();
+  }
+
+  function closeRankings(){
+    rankingsState.open = false;
+    document.getElementById('rankings-overlay').style.display = 'none';
   }
 
   function editableCell(p, field, extraClass, placeholder){
@@ -971,11 +1257,15 @@
     var country = p.nationality || '';
     var flag = country ? countryFlag(country) : '';
     var club = p.club || '';
-    var clubLogo = p.clubLogo || '';
+    var clubKey = club.trim();
+    var clubLogo = clubKey ? (clubLogos[clubKey] || '') : '';
+    var uploadDisabled = !clubKey;
     var clubCellInner = '<div class="club-display">' +
       (clubLogo ? '<img class="club-emblem" src="' + esc(clubLogo) + '" alt="">' : '') +
       '<span class="val">' + (club ? esc(club) : esc('Empty')) + '</span>' +
-      '<button class="club-upload-btn" data-logo="' + p.id + '" title="Upload club emblem" aria-label="Upload club emblem">' +
+      '<button class="club-upload-btn" data-logo-club="' + esc(clubKey) + '"' +
+        (uploadDisabled ? ' data-no-club="1"' : '') +
+        ' title="' + (uploadDisabled ? 'Set a club name first' : 'Upload club emblem (applies to all players at this club)') + '" aria-label="Upload club emblem">' +
         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>' +
       '</button>' +
     '</div>';
@@ -1024,7 +1314,11 @@
     Array.prototype.forEach.call(document.querySelectorAll('.club-upload-btn'), function(btn){
       btn.addEventListener('click', function(e){
         e.stopPropagation();
-        pendingLogoPlayerId = btn.getAttribute('data-logo');
+        if (btn.hasAttribute('data-no-club')){
+          alert('Set this player\'s club name first, then you can upload a logo for that club.');
+          return;
+        }
+        pendingLogoClub = btn.getAttribute('data-logo-club');
         document.getElementById('club-emblem-input').click();
       });
     });
@@ -1134,7 +1428,6 @@
       name: 'Untitled Player',
       nationality: '',
       club: '',
-      clubLogo: '',
       position: '',
       birthday: '',
       height: '',
@@ -1212,7 +1505,7 @@
 
   /* ---------------- import / export ---------------- */
   document.getElementById('export-btn').addEventListener('click', function(){
-    var data = JSON.stringify({ players: players }, null, 2);
+    var data = JSON.stringify({ players: players, clubLogos: clubLogos }, null, 2);
     var blob = new Blob([data], {type: 'application/json'});
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
@@ -1249,7 +1542,16 @@
           return player;
         });
 
+        var incomingLogos = (parsed && !Array.isArray(parsed) && parsed.clubLogos && typeof parsed.clubLogos === 'object')
+          ? parsed.clubLogos : {};
+        // migrate legacy per-player clubLogo values (older export format) into the club-keyed map
+        incoming.forEach(function(raw){
+          var key = (raw.club || '').trim();
+          if (key && raw.clubLogo && !incomingLogos[key]) incomingLogos[key] = raw.clubLogo;
+        });
+
         players = replace ? cleaned : players.concat(cleaned);
+        clubLogos = replace ? incomingLogos : Object.assign({}, clubLogos, incomingLogos);
         collapsedGroups = {};
         savePlayers();
         updateFilterOptions();
@@ -1265,9 +1567,9 @@
 
   document.getElementById('club-emblem-input').addEventListener('change', function(e){
     var file = e.target.files[0];
-    var id = pendingLogoPlayerId;
-    pendingLogoPlayerId = null;
-    if (!file || !id) {
+    var club = pendingLogoClub;
+    pendingLogoClub = null;
+    if (!file || !club) {
       e.target.value = '';
       return;
     }
@@ -1278,9 +1580,7 @@
     }
     var reader = new FileReader();
     reader.onload = function(evt){
-      var p = players.find(function(pl){ return pl.id === id; });
-      if (!p) return;
-      p.clubLogo = evt.target.result;
+      clubLogos[club] = evt.target.result;
       savePlayers();
       render();
     };
@@ -1294,6 +1594,23 @@
   });
 
   document.getElementById('add-player-btn').addEventListener('click', addPlayer);
+
+  document.getElementById('rankings-btn').addEventListener('click', openRankings);
+  document.getElementById('rankings-close').addEventListener('click', closeRankings);
+  document.getElementById('rankings-overlay').addEventListener('click', function(e){
+    if (e.target === this) closeRankings();
+  });
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape' && rankingsState.open) closeRankings();
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('.modal-tab'), function(tab){
+    tab.addEventListener('click', function(){
+      rankingsState.tab = tab.getAttribute('data-tab');
+      rankingsState.sortField = 'total';
+      rankingsState.sortDir = 'desc';
+      renderRankings();
+    });
+  });
 
   /* ---------------- init ---------------- */
   updateFilterOptions();
