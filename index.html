@@ -922,7 +922,11 @@
   function savePlayers(list){
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({players: list || players, clubLogos: clubLogos}));
-    } catch (err){}
+      return true;
+    } catch (err){
+      console.warn('Roster save failed:', err);
+      return false;
+    }
   }
 
   function countryFlag(countryName){
@@ -1565,6 +1569,37 @@
     reader.readAsText(file);
   });
 
+  function resizeImageToDataURL(file, maxDim, callback){
+    var reader = new FileReader();
+    reader.onload = function(evt){
+      var img = new Image();
+      img.onload = function(){
+        var w = img.naturalWidth || img.width;
+        var h = img.naturalHeight || img.height;
+        var scale = Math.min(1, maxDim / Math.max(w, h));
+        var tw = Math.max(1, Math.round(w * scale));
+        var th = Math.max(1, Math.round(h * scale));
+        var canvas = document.createElement('canvas');
+        canvas.width = tw;
+        canvas.height = th;
+        var ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, tw, th);
+        ctx.drawImage(img, 0, 0, tw, th);
+        var out;
+        try {
+          out = canvas.toDataURL('image/png');
+        } catch (err){
+          out = evt.target.result; // fall back to the original file if canvas export fails
+        }
+        callback(out);
+      };
+      img.onerror = function(){ callback(null); };
+      img.src = evt.target.result;
+    };
+    reader.onerror = function(){ callback(null); };
+    reader.readAsDataURL(file);
+  }
+
   document.getElementById('club-emblem-input').addEventListener('change', function(e){
     var file = e.target.files[0];
     var club = pendingLogoClub;
@@ -1578,19 +1613,22 @@
       e.target.value = '';
       return;
     }
-    var reader = new FileReader();
-    reader.onload = function(evt){
-      clubLogos[club] = evt.target.result;
-      savePlayers();
-      render();
-    };
-    reader.onerror = function(){
-      alert('Could not read that image file.');
-    };
-    reader.onloadend = function(){
+    resizeImageToDataURL(file, 160, function(dataUrl){
       e.target.value = '';
-    };
-    reader.readAsDataURL(file);
+      if (!dataUrl){
+        alert('Could not read that image file.');
+        return;
+      }
+      var previous = clubLogos[club];
+      clubLogos[club] = dataUrl;
+      var ok = savePlayers();
+      if (!ok){
+        if (previous === undefined) delete clubLogos[club]; else clubLogos[club] = previous;
+        alert('This logo could not be saved — your browser\'s local storage for this app is full. Try removing a few existing club logos, or use a smaller image.');
+        return;
+      }
+      render();
+    });
   });
 
   document.getElementById('add-player-btn').addEventListener('click', addPlayer);
