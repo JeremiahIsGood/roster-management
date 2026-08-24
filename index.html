@@ -622,6 +622,39 @@
     font-size:13px;
   }
 
+  /* ---------- Storage warning banner ---------- */
+  .storage-warning{
+    position:sticky;
+    top:0;
+    z-index:300;
+    display:flex;
+    align-items:flex-start;
+    gap:10px;
+    background:#FBEAE8;
+    color:#791F1F;
+    border-bottom:1px solid #E3B3AC;
+    padding:10px 20px;
+    font-size:13px;
+    line-height:1.5;
+  }
+  .storage-warning svg{
+    width:17px;
+    height:17px;
+    flex:0 0 auto;
+    margin-top:2px;
+  }
+  .storage-warning.storage-warning-mild{
+    background:#FCF3D9;
+    color:#6B4E00;
+    border-bottom-color:#E9D48C;
+  }
+  .storage-warning-detail{
+    margin-top:3px;
+    font-size:11.5px;
+    opacity:0.75;
+    font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+
   @media (max-width: 900px){
     .wrap{ padding:24px 16px 60px; }
     colgroup col.c-nat, colgroup col.c-bday{ width:0; display:none; }
@@ -631,6 +664,14 @@
 </style>
 </head>
 <body>
+
+<div id="storage-warning" class="storage-warning" style="display:none;">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+  <div>
+    <div id="storage-warning-text"></div>
+    <div id="storage-warning-detail" class="storage-warning-detail"></div>
+  </div>
+</div>
 
 <div class="wrap">
   <div class="topbar">
@@ -681,6 +722,12 @@
   <div class="warning-bar" id="duplicate-warning">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
     <span id="duplicate-warning-text"></span>
+  </div>
+
+  <div class="warning-bar storage-warning-bar" id="storage-warning" style="display:none;">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+    <span>This browser isn't saving your roster automatically (common when opening this file directly). <strong>Export before closing this tab</strong> or your changes will be lost.</span>
+    <button class="btn btn-primary storage-warning-btn" id="storage-warning-export">Export now</button>
   </div>
 
   <div class="table-card" id="table-card">
@@ -734,6 +781,86 @@
     sortDir: 'desc'
   };
   var STORAGE_KEY = 'roster-management.players.v1';
+  var DB_NAME = 'roster-management-db';
+  var DB_STORE = 'kv';
+  var storageMode = null; // 'indexeddb' | 'local' | 'session' | 'memory'
+  var storageErrorDetail = '';
+  var memoryStore = {};
+  var idbPromise = null;
+
+  function describeErr(err){
+    return (err && err.name ? err.name + ': ' : '') + (err && err.message ? err.message : String(err));
+  }
+
+  function idbOpen(){
+    if (idbPromise) return idbPromise;
+    idbPromise = new Promise(function(resolve, reject){
+      if (!window.indexedDB){ reject(new Error('IndexedDB is not available in this browser.')); return; }
+      var req;
+      try {
+        req = indexedDB.open(DB_NAME, 1);
+      } catch (err){ reject(err); return; }
+      req.onupgradeneeded = function(e){
+        var db = e.target.result;
+        if (!db.objectStoreNames.contains(DB_STORE)) db.createObjectStore(DB_STORE);
+      };
+      req.onsuccess = function(e){ resolve(e.target.result); };
+      req.onerror = function(e){ reject((e.target && e.target.error) || new Error('Could not open IndexedDB.')); };
+      req.onblocked = function(){ reject(new Error('IndexedDB open was blocked.')); };
+    });
+    return idbPromise;
+  }
+
+  function idbGet(key){
+    return idbOpen().then(function(db){
+      return new Promise(function(resolve, reject){
+        var tx = db.transaction(DB_STORE, 'readonly');
+        var store = tx.objectStore(DB_STORE);
+        var req = store.get(key);
+        req.onsuccess = function(){ resolve(req.result); };
+        req.onerror = function(){ reject(req.error || new Error('IndexedDB read failed.')); };
+      });
+    });
+  }
+
+  function idbSet(key, value){
+    return idbOpen().then(function(db){
+      return new Promise(function(resolve, reject){
+        var tx = db.transaction(DB_STORE, 'readwrite');
+        var store = tx.objectStore(DB_STORE);
+        var req = store.put(value, key);
+        req.onsuccess = function(){ resolve(); };
+        req.onerror = function(){ reject(req.error || new Error('IndexedDB write failed.')); };
+      });
+    });
+  }
+
+  function probeStorage(store){
+    var testKey = '__rm_probe__';
+    store.setItem(testKey, '1');
+    store.removeItem(testKey);
+  }
+
+  function setStorageWarning(mode){
+    var el = document.getElementById('storage-warning');
+    if (!el) return;
+    if (mode === 'indexeddb'){
+      el.style.display = 'none';
+      return;
+    }
+    el.style.display = 'flex';
+    el.classList.toggle('storage-warning-mild', mode === 'local' || mode === 'session');
+    var textEl = document.getElementById('storage-warning-text');
+    var detailEl = document.getElementById('storage-warning-detail');
+    if (mode === 'local'){
+      textEl.innerHTML = '<strong>Using a smaller, fallback storage mode.</strong> IndexedDB (this app\'s primary storage) isn\'t available, so a lower-capacity storage is being used instead. Your data still persists between visits, but a very large roster with many club logos could hit its limit again. Export occasionally as a backup.';
+    } else if (mode === 'session'){
+      textEl.innerHTML = '<strong>Persistent storage is blocked in this browser.</strong> Your roster is being kept for this browser tab only — it will survive a page refresh, but will be lost if you close the tab. Use <strong>Export</strong> to save a permanent copy.';
+    } else {
+      textEl.innerHTML = '<strong>This browser is blocking all storage for this page.</strong> Changes exist only until you close or refresh. Use <strong>Export</strong> regularly to save your work as a file.';
+    }
+    if (detailEl) detailEl.textContent = storageErrorDetail ? ('Browser reported: ' + storageErrorDetail) : '';
+  }
   var FIFA_ASSOCIATIONS = [
     {name:'Afghanistan', code:'af'}, {name:'Albania', code:'al'}, {name:'Algeria', code:'dz'},
     {name:'American Samoa', code:'as'}, {name:'Andorra', code:'ad'}, {name:'Angola', code:'ao'},
@@ -894,39 +1021,113 @@
     };
   }
 
-  function loadPlayers(){
+  function parsePayload(stored){
+    if (!stored) return null;
     try {
-      var stored = localStorage.getItem(STORAGE_KEY);
-      if (stored){
-        var parsed = JSON.parse(stored);
-        var incoming = Array.isArray(parsed) ? parsed : parsed.players;
-        if (parsed && !Array.isArray(parsed) && parsed.clubLogos && typeof parsed.clubLogos === 'object'){
-          clubLogos = parsed.clubLogos;
-        }
-        if (Array.isArray(incoming)){
-          var loaded = incoming.map(normalizePlayer);
-          // migrate any legacy per-player clubLogo values into the club-keyed store
-          incoming.forEach(function(raw){
-            var key = (raw.club || '').trim();
-            if (key && raw.clubLogo && !clubLogos[key]) clubLogos[key] = raw.clubLogo;
-          });
-          return loaded;
+      var parsed = JSON.parse(stored);
+      var incoming = Array.isArray(parsed) ? parsed : parsed.players;
+      if (parsed && !Array.isArray(parsed) && parsed.clubLogos && typeof parsed.clubLogos === 'object'){
+        clubLogos = parsed.clubLogos;
+      }
+      if (!Array.isArray(incoming)) return null;
+      var loaded = incoming.map(normalizePlayer);
+      // migrate any legacy per-player clubLogo values into the club-keyed store
+      incoming.forEach(function(raw){
+        var key = (raw.club || '').trim();
+        if (key && raw.clubLogo && !clubLogos[key]) clubLogos[key] = raw.clubLogo;
+      });
+      return loaded;
+    } catch (err){
+      return null;
+    }
+  }
+
+  function readSyncFallback(){
+    // used only when IndexedDB itself is unavailable
+    try {
+      probeStorage(window.localStorage);
+      storageMode = 'local';
+      return localStorage.getItem(STORAGE_KEY);
+    } catch (e){ /* keep trying */ }
+    try {
+      probeStorage(window.sessionStorage);
+      storageMode = 'session';
+      return sessionStorage.getItem(STORAGE_KEY);
+    } catch (e2){ /* keep trying */ }
+    storageMode = 'memory';
+    return memoryStore[STORAGE_KEY] || null;
+  }
+
+  function loadPlayers(){
+    return idbGet(STORAGE_KEY).then(function(value){
+      storageMode = 'indexeddb';
+      if (value) return value;
+      // nothing saved in IndexedDB yet — check for pre-existing localStorage/sessionStorage
+      // data from an earlier version of this app, and migrate it forward if found.
+      var legacy = null;
+      try { legacy = localStorage.getItem(STORAGE_KEY); } catch (e){}
+      if (!legacy){ try { legacy = sessionStorage.getItem(STORAGE_KEY); } catch (e){} }
+      if (legacy){ idbSet(STORAGE_KEY, legacy).catch(function(){}); }
+      return legacy;
+    }).catch(function(err){
+      console.warn('IndexedDB unavailable, falling back to browser storage:', err);
+      storageErrorDetail = describeErr(err);
+      return readSyncFallback();
+    }).then(function(stored){
+      setStorageWarning(storageMode);
+      var loaded = parsePayload(stored);
+      if (loaded) return loaded;
+      var seeded = samplePlayers().map(normalizePlayer);
+      savePlayers(seeded);
+      return seeded;
+    });
+  }
+
+  function attemptSave(payload){
+    return idbSet(STORAGE_KEY, payload).then(function(){
+      storageMode = 'indexeddb';
+      setStorageWarning('indexeddb');
+      return true;
+    }).catch(function(err){
+      console.warn('IndexedDB save failed, falling back:', err);
+      storageErrorDetail = describeErr(err);
+      try {
+        localStorage.setItem(STORAGE_KEY, payload);
+        storageMode = 'local';
+        setStorageWarning('local');
+        return true;
+      } catch (err2){
+        console.warn('localStorage save failed, falling back to sessionStorage:', err2);
+        storageErrorDetail = describeErr(err2);
+        try {
+          sessionStorage.setItem(STORAGE_KEY, payload);
+          storageMode = 'session';
+          setStorageWarning('session');
+          return true;
+        } catch (err3){
+          console.warn('sessionStorage save failed, falling back to memory:', err3);
+          storageErrorDetail = describeErr(err3);
+          memoryStore[STORAGE_KEY] = payload;
+          storageMode = 'memory';
+          setStorageWarning('memory');
+          return false;
         }
       }
-    } catch (err){}
-    var seeded = samplePlayers().map(normalizePlayer);
-    savePlayers(seeded);
-    return seeded;
+    });
   }
 
   function savePlayers(list){
+    var payload;
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({players: list || players, clubLogos: clubLogos}));
-      return true;
+      payload = JSON.stringify({players: list || players, clubLogos: clubLogos});
     } catch (err){
-      console.warn('Roster save failed:', err);
-      return false;
+      console.warn('Could not prepare roster data for saving:', err);
+      storageMode = 'memory';
+      storageErrorDetail = describeErr(err) || 'Could not serialize roster data.';
+      setStorageWarning(storageMode);
+      return Promise.resolve(false);
     }
+    return attemptSave(payload);
   }
 
   function countryFlag(countryName){
@@ -962,8 +1163,6 @@
       {id: uid(), name:'Ahmed Diallo', nationality:'Senegal', club:'Northgate SC', position:'DF', birthday:'2000-11-30', height:186, score:83}
     ];
   }
-
-  players = loadPlayers();
 
   /* ---------------- helpers ---------------- */
   function esc(str){
@@ -1508,7 +1707,7 @@
   });
 
   /* ---------------- import / export ---------------- */
-  document.getElementById('export-btn').addEventListener('click', function(){
+  function exportRoster(){
     var data = JSON.stringify({ players: players, clubLogos: clubLogos }, null, 2);
     var blob = new Blob([data], {type: 'application/json'});
     var url = URL.createObjectURL(blob);
@@ -1520,7 +1719,8 @@
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  });
+  }
+  document.getElementById('export-btn').addEventListener('click', exportRoster);
 
   document.getElementById('import-btn').addEventListener('click', function(){
     document.getElementById('import-input').click();
@@ -1621,13 +1821,14 @@
       }
       var previous = clubLogos[club];
       clubLogos[club] = dataUrl;
-      var ok = savePlayers();
-      if (!ok){
-        if (previous === undefined) delete clubLogos[club]; else clubLogos[club] = previous;
-        alert('This logo could not be saved — your browser\'s local storage for this app is full. Try removing a few existing club logos, or use a smaller image.');
-        return;
-      }
-      render();
+      savePlayers().then(function(ok){
+        if (!ok){
+          if (previous === undefined) delete clubLogos[club]; else clubLogos[club] = previous;
+          alert('This logo could not be saved anywhere — your browser is blocking all storage for this page. Try removing a few existing club logos, use a smaller image, or check your browser\'s privacy settings.');
+          return;
+        }
+        render();
+      });
     });
   });
 
@@ -1651,8 +1852,12 @@
   });
 
   /* ---------------- init ---------------- */
-  updateFilterOptions();
-  render();
+  document.getElementById('table-card').innerHTML = '<div class="empty-state"><h3>Loading your roster…</h3></div>';
+  loadPlayers().then(function(loaded){
+    players = loaded;
+    updateFilterOptions();
+    render();
+  });
 })();
 </script>
 </body>
