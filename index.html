@@ -549,6 +549,31 @@
   .modal-tab + .modal-tab{ margin-left:14px; }
   .modal-tab:hover{ color:var(--text); }
   .modal-tab.active{ color:var(--accent-dark); border-bottom-color:var(--accent); }
+  .modal-asof{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:12px 20px 0;
+    flex:0 0 auto;
+  }
+  .modal-asof input[type=date]{
+    font-family:inherit;
+    font-size:13px;
+    padding:5px 8px;
+    border-radius:6px;
+    border:1px solid var(--border-strong);
+    background:var(--bg);
+    color:var(--text);
+  }
+  .btn-small{
+    padding:5px 10px;
+    font-size:12px;
+  }
+  .rankings-asof-note{
+    font-size:12px;
+    color:var(--text-faint);
+    font-style:italic;
+  }
   .modal-body{
     overflow-y:auto;
     padding:8px 20px 20px;
@@ -749,8 +774,15 @@
       </button>
     </div>
     <div class="modal-tabs">
-      <button class="modal-tab active" id="rankings-tab-club" data-tab="club">By Club</button>
+      <button class="modal-tab active" id="rankings-tab-player" data-tab="player">By Player</button>
+      <button class="modal-tab" id="rankings-tab-club" data-tab="club">By Club</button>
       <button class="modal-tab" id="rankings-tab-nationality" data-tab="nationality">By Nationality</button>
+    </div>
+    <div class="modal-asof">
+      <span class="field-label">As of</span>
+      <input type="date" id="rankings-date">
+      <button class="btn btn-ghost btn-small" id="rankings-date-live" title="Reset to current data">Live</button>
+      <span id="rankings-asof-note" class="rankings-asof-note"></span>
     </div>
     <div class="modal-body" id="rankings-body">
       <!-- rendered by JS -->
@@ -776,9 +808,10 @@
   };
   var rankingsState = {
     open: false,
-    tab: 'club',
-    sortField: 'total',
-    sortDir: 'desc'
+    tab: 'player',
+    sortField: 'score',
+    sortDir: 'desc',
+    dateStr: ''
   };
   var STORAGE_KEY = 'roster-management.players.v1';
   var DB_NAME = 'roster-management-db';
@@ -984,6 +1017,45 @@
     return Math.floor(n);
   }
 
+  // scoreHistory[playerId] = [{t, name, club, nationality, score}, ...] sorted ascending by t.
+  // Used to reconstruct "as of a past date" rankings. Only grows when a tracked field
+  // actually changes, and survives player deletion so past snapshots stay accurate.
+  var scoreHistory = {};
+
+  function recordHistory(p){
+    if (!p || !p.id) return;
+    var entry = {
+      t: Date.now(),
+      name: p.name || '',
+      club: (p.club || '').trim(),
+      nationality: (p.nationality || '').trim(),
+      score: normalizeScore(p.score)
+    };
+    var arr = scoreHistory[p.id];
+    if (!arr){ arr = []; scoreHistory[p.id] = arr; }
+    var last = arr[arr.length - 1];
+    if (last && last.name === entry.name && last.club === entry.club &&
+        last.nationality === entry.nationality && last.score === entry.score){
+      return; // nothing actually changed, skip duplicate entry
+    }
+    arr.push(entry);
+  }
+
+  function rosterAsOf(referenceMs){
+    // reconstructs the player list as it stood at referenceMs using the latest
+    // history snapshot <= referenceMs for each player id that existed by then.
+    var rows = [];
+    Object.keys(scoreHistory).forEach(function(id){
+      var arr = scoreHistory[id];
+      var snap = null;
+      for (var i = 0; i < arr.length; i++){
+        if (arr[i].t <= referenceMs) snap = arr[i]; else break;
+      }
+      if (snap) rows.push({id: id, name: snap.name, club: snap.club, nationality: snap.nationality, score: snap.score});
+    });
+    return rows;
+  }
+
   function normalizeAssociationName(name){
     var aliases = {
       'Brazil': 'Brazil',
@@ -1029,12 +1101,19 @@
       if (parsed && !Array.isArray(parsed) && parsed.clubLogos && typeof parsed.clubLogos === 'object'){
         clubLogos = parsed.clubLogos;
       }
+      if (parsed && !Array.isArray(parsed) && parsed.scoreHistory && typeof parsed.scoreHistory === 'object'){
+        scoreHistory = parsed.scoreHistory;
+      }
       if (!Array.isArray(incoming)) return null;
       var loaded = incoming.map(normalizePlayer);
       // migrate any legacy per-player clubLogo values into the club-keyed store
       incoming.forEach(function(raw){
         var key = (raw.club || '').trim();
         if (key && raw.clubLogo && !clubLogos[key]) clubLogos[key] = raw.clubLogo;
+      });
+      // backfill history for any player that predates history tracking
+      loaded.forEach(function(p){
+        if (!scoreHistory[p.id] || !scoreHistory[p.id].length) recordHistory(p);
       });
       return loaded;
     } catch (err){
@@ -1119,7 +1198,7 @@
   function savePlayers(list){
     var payload;
     try {
-      payload = JSON.stringify({players: list || players, clubLogos: clubLogos});
+      payload = JSON.stringify({players: list || players, clubLogos: clubLogos, scoreHistory: scoreHistory});
     } catch (err){
       console.warn('Could not prepare roster data for saving:', err);
       storageMode = 'memory';
@@ -1353,24 +1432,76 @@
   }
 
   /* ---------------- rankings modal ---------------- */
+  function todayStr(){
+    var d = new Date();
+    var m = String(d.getMonth() + 1);
+    var day = String(d.getDate());
+    if (m.length < 2) m = '0' + m;
+    if (day.length < 2) day = '0' + day;
+    return d.getFullYear() + '-' + m + '-' + day;
+  }
+
+  function isLiveMode(){
+    return !rankingsState.dateStr || rankingsState.dateStr >= todayStr();
+  }
+
+  function rankingsSourceRows(){
+    if (isLiveMode()){
+      return players.map(function(p){
+        return {
+          name: p.name || 'Untitled Player',
+          club: (p.club || '').trim() || 'Unspecified',
+          nationality: (p.nationality || '').trim() || 'Unspecified',
+          score: normalizeScore(p.score)
+        };
+      });
+    }
+    var refMs = new Date(rankingsState.dateStr + 'T23:59:59.999').getTime();
+    return rosterAsOf(refMs).map(function(p){
+      return {
+        name: p.name || 'Untitled Player',
+        club: p.club || 'Unspecified',
+        nationality: p.nationality || 'Unspecified',
+        score: p.score
+      };
+    });
+  }
+
   function computeRankings(field){
+    var rows = rankingsSourceRows();
     var buckets = {};
     var order = [];
-    players.forEach(function(p){
-      var v = (p[field] || '').trim() || 'Unspecified';
+    rows.forEach(function(p){
+      var v = p[field] || 'Unspecified';
       if (!buckets[v]){ buckets[v] = []; order.push(v); }
       buckets[v].push(p);
     });
-    var rows = order.map(function(key){
+    var out = order.map(function(key){
       var items = buckets[key];
-      var total = items.reduce(function(sum, p){ return sum + normalizeScore(p.score); }, 0);
+      var total = items.reduce(function(sum, p){ return sum + p.score; }, 0);
       var count = items.length;
       var avg = count ? total / count : 0;
       return {name: key, count: count, total: total, avg: avg};
     });
-    rows.sort(function(a, b){
-      var av = a[rankingsState.sortField], bv = b[rankingsState.sortField];
+    out.sort(function(a, b){
+      var av = typeof a[rankingsState.sortField] === 'number' ? a[rankingsState.sortField] : a.total;
+      var bv = typeof b[rankingsState.sortField] === 'number' ? b[rankingsState.sortField] : b.total;
       var diff = rankingsState.sortDir === 'desc' ? bv - av : av - bv;
+      if (diff !== 0) return diff;
+      return a.name.localeCompare(b.name);
+    });
+    return out;
+  }
+
+  function computePlayerRankings(){
+    var rows = rankingsSourceRows();
+    var sortByName = rankingsState.sortField === 'name';
+    rows.sort(function(a, b){
+      if (sortByName){
+        var d = a.name.localeCompare(b.name);
+        return rankingsState.sortDir === 'desc' ? -d : d;
+      }
+      var diff = rankingsState.sortDir === 'desc' ? b.score - a.score : a.score - b.score;
       if (diff !== 0) return diff;
       return a.name.localeCompare(b.name);
     });
@@ -1379,16 +1510,14 @@
 
   function renderRankings(){
     var body = document.getElementById('rankings-body');
-    var field = rankingsState.tab;
-    var rows = computeRankings(field);
+    var tab = rankingsState.tab;
 
-    document.getElementById('rankings-tab-club').classList.toggle('active', field === 'club');
-    document.getElementById('rankings-tab-nationality').classList.toggle('active', field === 'nationality');
+    document.getElementById('rankings-tab-player').classList.toggle('active', tab === 'player');
+    document.getElementById('rankings-tab-club').classList.toggle('active', tab === 'club');
+    document.getElementById('rankings-tab-nationality').classList.toggle('active', tab === 'nationality');
 
-    if (rows.length === 0){
-      body.innerHTML = '<div class="rank-empty">No players yet.</div>';
-      return;
-    }
+    var note = document.getElementById('rankings-asof-note');
+    note.textContent = isLiveMode() ? '' : ('Showing rankings as of ' + fmtDate(rankingsState.dateStr) + '.');
 
     function arrow(f){
       if (rankingsState.sortField !== f) return '';
@@ -1396,26 +1525,57 @@
     }
     function sortClass(f){ return rankingsState.sortField === f ? ' active-sort' : ''; }
 
-    var html = '<table class="rank-table"><thead><tr>';
-    html += '<th class="rank-num">#</th>';
-    html += '<th>' + (field === 'club' ? 'Club' : 'Nationality') + '</th>';
-    html += '<th class="sortable' + sortClass('count') + '" data-sort="count" style="text-align:right;">Players' + arrow('count') + '</th>';
-    html += '<th class="sortable' + sortClass('total') + '" data-sort="total" style="text-align:right;">Total' + arrow('total') + '</th>';
-    html += '<th class="sortable' + sortClass('avg') + '" data-sort="avg" style="text-align:right;">Average' + arrow('avg') + '</th>';
-    html += '</tr></thead><tbody>';
+    var html;
 
-    rows.forEach(function(row, i){
-      var flag = field === 'nationality' ? countryFlag(row.name) : '';
-      html += '<tr>';
-      html += '<td class="rank-num">' + (i + 1) + '</td>';
-      html += '<td><div class="rank-name">' + flag + '<span class="val">' + esc(row.name) + '</span></div></td>';
-      html += '<td class="rank-count">' + row.count + '</td>';
-      html += '<td class="rank-total">' + row.total + '</td>';
-      html += '<td class="rank-avg">' + row.avg.toFixed(1) + '</td>';
-      html += '</tr>';
-    });
+    if (tab === 'player'){
+      var prows = computePlayerRankings();
+      if (prows.length === 0){
+        body.innerHTML = '<div class="rank-empty">' + (isLiveMode() ? 'No players yet.' : 'No history recorded as of this date yet.') + '</div>';
+        return;
+      }
+      html = '<table class="rank-table"><thead><tr>';
+      html += '<th class="rank-num">#</th>';
+      html += '<th class="sortable' + sortClass('name') + '" data-sort="name">Player' + arrow('name') + '</th>';
+      html += '<th>Club</th>';
+      html += '<th>Nationality</th>';
+      html += '<th class="sortable' + sortClass('score') + '" data-sort="score" style="text-align:right;">Score' + arrow('score') + '</th>';
+      html += '</tr></thead><tbody>';
+      prows.forEach(function(row, i){
+        html += '<tr>';
+        html += '<td class="rank-num">' + (i + 1) + '</td>';
+        html += '<td><div class="rank-name"><span class="val">' + esc(row.name) + '</span></div></td>';
+        html += '<td>' + esc(row.club) + '</td>';
+        html += '<td><div class="rank-name">' + countryFlag(row.nationality) + '<span class="val">' + esc(row.nationality) + '</span></div></td>';
+        html += '<td class="rank-total">' + row.score + '</td>';
+        html += '</tr>';
+      });
+      html += '</tbody></table>';
+    } else {
+      var rows = computeRankings(tab);
+      if (rows.length === 0){
+        body.innerHTML = '<div class="rank-empty">' + (isLiveMode() ? 'No players yet.' : 'No history recorded as of this date yet.') + '</div>';
+        return;
+      }
+      html = '<table class="rank-table"><thead><tr>';
+      html += '<th class="rank-num">#</th>';
+      html += '<th>' + (tab === 'club' ? 'Club' : 'Nationality') + '</th>';
+      html += '<th class="sortable' + sortClass('count') + '" data-sort="count" style="text-align:right;">Players' + arrow('count') + '</th>';
+      html += '<th class="sortable' + sortClass('total') + '" data-sort="total" style="text-align:right;">Total' + arrow('total') + '</th>';
+      html += '<th class="sortable' + sortClass('avg') + '" data-sort="avg" style="text-align:right;">Average' + arrow('avg') + '</th>';
+      html += '</tr></thead><tbody>';
+      rows.forEach(function(row, i){
+        var flag = tab === 'nationality' ? countryFlag(row.name) : '';
+        html += '<tr>';
+        html += '<td class="rank-num">' + (i + 1) + '</td>';
+        html += '<td><div class="rank-name">' + flag + '<span class="val">' + esc(row.name) + '</span></div></td>';
+        html += '<td class="rank-count">' + row.count + '</td>';
+        html += '<td class="rank-total">' + row.total + '</td>';
+        html += '<td class="rank-avg">' + row.avg.toFixed(1) + '</td>';
+        html += '</tr>';
+      });
+      html += '</tbody></table>';
+    }
 
-    html += '</tbody></table>';
     body.innerHTML = html;
 
     Array.prototype.forEach.call(body.querySelectorAll('th[data-sort]'), function(th){
@@ -1435,6 +1595,9 @@
   function openRankings(){
     rankingsState.open = true;
     document.getElementById('rankings-overlay').style.display = 'flex';
+    var dateInput = document.getElementById('rankings-date');
+    dateInput.max = todayStr();
+    dateInput.value = rankingsState.dateStr || todayStr();
     renderRankings();
   }
 
@@ -1547,6 +1710,7 @@
         if (didCommitSelect) return;
         didCommitSelect = true;
         p[field] = select.value;
+        recordHistory(p);
         savePlayers();
         updateFilterOptions();
         render();
@@ -1581,6 +1745,7 @@
       var v = input.value;
       if (field === 'height') v = v === '' ? '' : Number(v);
       p[field] = v;
+      recordHistory(p);
       savePlayers();
       updateFilterOptions();
       render();
@@ -1615,6 +1780,7 @@
 
     function commit(){
       p.score = normalizeScore(input.value);
+      recordHistory(p);
       savePlayers();
       render();
     }
@@ -1637,6 +1803,7 @@
       score: 0
     };
     players.push(p);
+    recordHistory(p);
     savePlayers();
     updateFilterOptions();
     render();
@@ -1708,7 +1875,7 @@
 
   /* ---------------- import / export ---------------- */
   function exportRoster(){
-    var data = JSON.stringify({ players: players, clubLogos: clubLogos }, null, 2);
+    var data = JSON.stringify({ players: players, clubLogos: clubLogos, scoreHistory: scoreHistory }, null, 2);
     var blob = new Blob([data], {type: 'application/json'});
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
@@ -1740,9 +1907,15 @@
           'Import ' + incoming.length + ' player(s).\n\nOK = replace current roster\nCancel = add to current roster'
         );
 
+        var incomingHistory = (parsed && !Array.isArray(parsed) && parsed.scoreHistory && typeof parsed.scoreHistory === 'object')
+          ? parsed.scoreHistory : null;
+
         var cleaned = incoming.map(function(raw){
           var player = normalizePlayer(raw);
-          player.id = uid();
+          // on a full replace we can safely keep original ids (and thus their real
+          // history); on a merge, ids are regenerated to avoid colliding with the
+          // roster already loaded.
+          if (!replace) player.id = uid();
           return player;
         });
 
@@ -1756,6 +1929,14 @@
 
         players = replace ? cleaned : players.concat(cleaned);
         clubLogos = replace ? incomingLogos : Object.assign({}, clubLogos, incomingLogos);
+        if (replace){
+          // a full backup (with its own history) restores that history verbatim;
+          // otherwise (e.g. an older export, or a plain player list) start fresh.
+          scoreHistory = incomingHistory ? incomingHistory : {};
+        }
+        cleaned.forEach(function(p){
+          if (!scoreHistory[p.id] || !scoreHistory[p.id].length) recordHistory(p);
+        });
         collapsedGroups = {};
         savePlayers();
         updateFilterOptions();
@@ -1845,10 +2026,19 @@
   Array.prototype.forEach.call(document.querySelectorAll('.modal-tab'), function(tab){
     tab.addEventListener('click', function(){
       rankingsState.tab = tab.getAttribute('data-tab');
-      rankingsState.sortField = 'total';
+      rankingsState.sortField = rankingsState.tab === 'player' ? 'score' : 'total';
       rankingsState.sortDir = 'desc';
       renderRankings();
     });
+  });
+  document.getElementById('rankings-date').addEventListener('change', function(e){
+    rankingsState.dateStr = e.target.value;
+    renderRankings();
+  });
+  document.getElementById('rankings-date-live').addEventListener('click', function(){
+    rankingsState.dateStr = '';
+    document.getElementById('rankings-date').value = todayStr();
+    renderRankings();
   });
 
   /* ---------------- init ---------------- */
