@@ -49,27 +49,119 @@
     gap:20px;
     flex-wrap:wrap;
   }
-  .title-block h1{
+  .roster-switcher{
+    position:relative;
+    margin-bottom:4px;
+  }
+  .roster-switcher-btn{
     font-family:'Inter Tight',sans-serif;
     font-size:26px;
     font-weight:700;
-    margin:0 0 4px;
     letter-spacing:-0.01em;
     display:flex;
     align-items:center;
     gap:10px;
+    background:none;
+    border:none;
+    padding:2px 4px;
+    margin:0 0 -2px -4px;
+    color:var(--text);
+    cursor:pointer;
+    border-radius:6px;
+  }
+  .roster-switcher-btn:hover{ background:var(--bg-hover); }
+  .roster-switcher-btn:hover .roster-chevron{ color:var(--text-secondary); }
+  .roster-chevron{
+    width:16px;
+    height:16px;
+    color:var(--text-faint);
+    margin-top:3px;
   }
   .title-block .pitch-dot{
     width:10px;height:10px;border-radius:2px;
     background:var(--accent);
     display:inline-block;
     transform:rotate(45deg);
+    flex:0 0 auto;
   }
   .title-block p{
     margin:0;
     font-size:13px;
     color:var(--text-secondary);
   }
+  .roster-menu{
+    position:absolute;
+    top:calc(100% + 6px);
+    left:0;
+    min-width:230px;
+    background:var(--bg);
+    border:1px solid var(--border);
+    border-radius:10px;
+    box-shadow:var(--shadow-pop);
+    padding:6px;
+    z-index:150;
+  }
+  .roster-menu-list{
+    max-height:260px;
+    overflow-y:auto;
+    display:flex;
+    flex-direction:column;
+    gap:1px;
+  }
+  .roster-menu-item{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    width:100%;
+    text-align:left;
+    background:none;
+    border:none;
+    padding:8px 9px;
+    border-radius:6px;
+    font-size:13.5px;
+    color:var(--text);
+    cursor:pointer;
+  }
+  .roster-menu-item:hover{ background:var(--bg-hover); }
+  .roster-menu-item.active{ color:var(--accent-dark); font-weight:600; }
+  .roster-menu-item .val{
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .roster-menu-check{
+    width:14px;
+    height:14px;
+    flex:0 0 auto;
+    color:var(--accent);
+  }
+  .roster-menu-spacer{ width:14px; flex:0 0 auto; }
+  .roster-menu-divider{
+    height:1px;
+    background:var(--border);
+    margin:6px 2px;
+  }
+  .roster-menu-action{
+    display:block;
+    width:100%;
+    text-align:left;
+    background:none;
+    border:none;
+    padding:8px 9px;
+    border-radius:6px;
+    font-size:13px;
+    font-weight:500;
+    color:var(--text-secondary);
+    cursor:pointer;
+  }
+  .roster-menu-action:hover{ background:var(--bg-hover); color:var(--text); }
+  .roster-menu-action.roster-menu-danger{ color:var(--danger); }
+  .roster-menu-action.roster-menu-danger:hover{ background:var(--danger-light); }
+  .roster-menu-action:disabled{
+    opacity:0.4;
+    cursor:not-allowed;
+  }
+  .roster-menu-action:disabled:hover{ background:none; color:var(--text-secondary); }
 
   .toolbar{
     display:flex;
@@ -701,7 +793,14 @@
 <div class="wrap">
   <div class="topbar">
     <div class="title-block">
-      <h1><span class="pitch-dot"></span>Roster</h1>
+      <div class="roster-switcher">
+        <button class="roster-switcher-btn" id="roster-switcher-btn" title="Switch or manage rosters">
+          <span class="pitch-dot"></span>
+          <span id="current-roster-name">Roster</span>
+          <svg class="roster-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="roster-menu" id="roster-menu" style="display:none;"></div>
+      </div>
       <p id="subtitle">0 players</p>
     </div>
     <div class="toolbar">
@@ -813,7 +912,11 @@
     sortDir: 'desc',
     dateStr: ''
   };
-  var STORAGE_KEY = 'roster-management.players.v1';
+  var STORAGE_KEY = 'roster-management.players.v1'; // legacy single-roster key, kept for migration
+  var META_KEY = 'roster-management.meta.v1';
+  var rosters = []; // [{id, name, createdAt}]
+  var currentRosterId = null;
+  var rosterMenuOpen = false;
   var DB_NAME = 'roster-management-db';
   var DB_STORE = 'kv';
   var storageMode = null; // 'indexeddb' | 'local' | 'session' | 'memory'
@@ -872,6 +975,85 @@
     var testKey = '__rm_probe__';
     store.setItem(testKey, '1');
     store.removeItem(testKey);
+  }
+
+  function readSyncFallbackKey(key){
+    try {
+      probeStorage(window.localStorage);
+      storageMode = 'local';
+      return localStorage.getItem(key);
+    } catch (e){ /* keep trying */ }
+    try {
+      probeStorage(window.sessionStorage);
+      storageMode = 'session';
+      return sessionStorage.getItem(key);
+    } catch (e2){ /* keep trying */ }
+    storageMode = 'memory';
+    return memoryStore[key] || null;
+  }
+
+  function readKeyChain(key){
+    return idbGet(key).then(function(value){
+      storageMode = 'indexeddb';
+      return value || null;
+    }).catch(function(err){
+      console.warn('IndexedDB unavailable, falling back to browser storage:', err);
+      storageErrorDetail = describeErr(err);
+      return readSyncFallbackKey(key);
+    }).then(function(value){
+      setStorageWarning(storageMode);
+      return value;
+    });
+  }
+
+  function writeKeyChain(key, payload){
+    return idbSet(key, payload).then(function(){
+      storageMode = 'indexeddb';
+      setStorageWarning('indexeddb');
+      return true;
+    }).catch(function(err){
+      console.warn('IndexedDB save failed, falling back:', err);
+      storageErrorDetail = describeErr(err);
+      try {
+        localStorage.setItem(key, payload);
+        storageMode = 'local';
+        setStorageWarning('local');
+        return true;
+      } catch (err2){
+        console.warn('localStorage save failed, falling back to sessionStorage:', err2);
+        storageErrorDetail = describeErr(err2);
+        try {
+          sessionStorage.setItem(key, payload);
+          storageMode = 'session';
+          setStorageWarning('session');
+          return true;
+        } catch (err3){
+          console.warn('sessionStorage save failed, falling back to memory:', err3);
+          storageErrorDetail = describeErr(err3);
+          memoryStore[key] = payload;
+          storageMode = 'memory';
+          setStorageWarning('memory');
+          return false;
+        }
+      }
+    });
+  }
+
+  function deleteKeyChain(key){
+    var idbDone = idbOpen().then(function(db){
+      return new Promise(function(resolve){
+        try {
+          var tx = db.transaction(DB_STORE, 'readwrite');
+          var req = tx.objectStore(DB_STORE).delete(key);
+          req.onsuccess = function(){ resolve(); };
+          req.onerror = function(){ resolve(); };
+        } catch (e){ resolve(); }
+      });
+    }).catch(function(){});
+    try { localStorage.removeItem(key); } catch (e){}
+    try { sessionStorage.removeItem(key); } catch (e){}
+    delete memoryStore[key];
+    return idbDone;
   }
 
   function setStorageWarning(mode){
@@ -1093,17 +1275,16 @@
     };
   }
 
+  function rosterDataKey(id){ return 'roster-management.roster-data.v1.' + id; }
+  function newRosterId(){ return 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+
   function parsePayload(stored){
     if (!stored) return null;
     try {
       var parsed = JSON.parse(stored);
       var incoming = Array.isArray(parsed) ? parsed : parsed.players;
-      if (parsed && !Array.isArray(parsed) && parsed.clubLogos && typeof parsed.clubLogos === 'object'){
-        clubLogos = parsed.clubLogos;
-      }
-      if (parsed && !Array.isArray(parsed) && parsed.scoreHistory && typeof parsed.scoreHistory === 'object'){
-        scoreHistory = parsed.scoreHistory;
-      }
+      clubLogos = (parsed && !Array.isArray(parsed) && parsed.clubLogos && typeof parsed.clubLogos === 'object') ? parsed.clubLogos : {};
+      scoreHistory = (parsed && !Array.isArray(parsed) && parsed.scoreHistory && typeof parsed.scoreHistory === 'object') ? parsed.scoreHistory : {};
       if (!Array.isArray(incoming)) return null;
       var loaded = incoming.map(normalizePlayer);
       // migrate any legacy per-player clubLogo values into the club-keyed store
@@ -1121,77 +1302,17 @@
     }
   }
 
-  function readSyncFallback(){
-    // used only when IndexedDB itself is unavailable
-    try {
-      probeStorage(window.localStorage);
-      storageMode = 'local';
-      return localStorage.getItem(STORAGE_KEY);
-    } catch (e){ /* keep trying */ }
-    try {
-      probeStorage(window.sessionStorage);
-      storageMode = 'session';
-      return sessionStorage.getItem(STORAGE_KEY);
-    } catch (e2){ /* keep trying */ }
-    storageMode = 'memory';
-    return memoryStore[STORAGE_KEY] || null;
-  }
-
-  function loadPlayers(){
-    return idbGet(STORAGE_KEY).then(function(value){
-      storageMode = 'indexeddb';
-      if (value) return value;
-      // nothing saved in IndexedDB yet — check for pre-existing localStorage/sessionStorage
-      // data from an earlier version of this app, and migrate it forward if found.
-      var legacy = null;
-      try { legacy = localStorage.getItem(STORAGE_KEY); } catch (e){}
-      if (!legacy){ try { legacy = sessionStorage.getItem(STORAGE_KEY); } catch (e){} }
-      if (legacy){ idbSet(STORAGE_KEY, legacy).catch(function(){}); }
-      return legacy;
-    }).catch(function(err){
-      console.warn('IndexedDB unavailable, falling back to browser storage:', err);
-      storageErrorDetail = describeErr(err);
-      return readSyncFallback();
-    }).then(function(stored){
-      setStorageWarning(storageMode);
+  function loadRosterData(id){
+    return readKeyChain(rosterDataKey(id)).then(function(stored){
       var loaded = parsePayload(stored);
       if (loaded) return loaded;
+      // shouldn't normally happen (rosters are given initial data when created), but recover gracefully
+      clubLogos = {};
+      scoreHistory = {};
       var seeded = samplePlayers().map(normalizePlayer);
+      seeded.forEach(function(p){ recordHistory(p); });
       savePlayers(seeded);
       return seeded;
-    });
-  }
-
-  function attemptSave(payload){
-    return idbSet(STORAGE_KEY, payload).then(function(){
-      storageMode = 'indexeddb';
-      setStorageWarning('indexeddb');
-      return true;
-    }).catch(function(err){
-      console.warn('IndexedDB save failed, falling back:', err);
-      storageErrorDetail = describeErr(err);
-      try {
-        localStorage.setItem(STORAGE_KEY, payload);
-        storageMode = 'local';
-        setStorageWarning('local');
-        return true;
-      } catch (err2){
-        console.warn('localStorage save failed, falling back to sessionStorage:', err2);
-        storageErrorDetail = describeErr(err2);
-        try {
-          sessionStorage.setItem(STORAGE_KEY, payload);
-          storageMode = 'session';
-          setStorageWarning('session');
-          return true;
-        } catch (err3){
-          console.warn('sessionStorage save failed, falling back to memory:', err3);
-          storageErrorDetail = describeErr(err3);
-          memoryStore[STORAGE_KEY] = payload;
-          storageMode = 'memory';
-          setStorageWarning('memory');
-          return false;
-        }
-      }
     });
   }
 
@@ -1206,8 +1327,57 @@
       setStorageWarning(storageMode);
       return Promise.resolve(false);
     }
-    return attemptSave(payload);
+    return writeKeyChain(rosterDataKey(currentRosterId), payload);
   }
+
+  function saveMeta(){
+    var payload;
+    try {
+      payload = JSON.stringify({rosters: rosters, currentRosterId: currentRosterId});
+    } catch (err){
+      return Promise.resolve(false);
+    }
+    return writeKeyChain(META_KEY, payload);
+  }
+
+  function migrateOrCreateDefaultRoster(){
+    return idbGet(STORAGE_KEY).catch(function(){ return null; }).then(function(oldValue){
+      if (!oldValue){ try { oldValue = localStorage.getItem(STORAGE_KEY); } catch (e){} }
+      if (!oldValue){ try { oldValue = sessionStorage.getItem(STORAGE_KEY); } catch (e){} }
+      var id = 'default';
+      rosters = [{id: id, name: 'My Roster', createdAt: Date.now()}];
+      currentRosterId = id;
+      if (oldValue){
+        // an earlier, pre-multi-roster version of this app already has data — adopt it as-is
+        return writeKeyChain(rosterDataKey(id), oldValue).then(function(){ return saveMeta(); });
+      }
+      // brand new install: seed the very first roster with sample players
+      clubLogos = {};
+      scoreHistory = {};
+      var seeded = samplePlayers().map(normalizePlayer);
+      seeded.forEach(function(p){ recordHistory(p); });
+      var payload = JSON.stringify({players: seeded, clubLogos: clubLogos, scoreHistory: scoreHistory});
+      return writeKeyChain(rosterDataKey(id), payload).then(function(){ return saveMeta(); });
+    });
+  }
+
+  function loadMetaAndMigrate(){
+    return readKeyChain(META_KEY).then(function(stored){
+      if (stored){
+        try {
+          var parsed = JSON.parse(stored);
+          if (parsed && Array.isArray(parsed.rosters) && parsed.rosters.length){
+            rosters = parsed.rosters;
+            currentRosterId = (parsed.currentRosterId && rosters.some(function(r){ return r.id === parsed.currentRosterId; }))
+              ? parsed.currentRosterId : rosters[0].id;
+            return;
+          }
+        } catch (e){}
+      }
+      return migrateOrCreateDefaultRoster();
+    });
+  }
+
 
   function countryFlag(countryName){
     var code = countryCodeByName[countryName];
@@ -1544,7 +1714,8 @@
         html += '<tr>';
         html += '<td class="rank-num">' + (i + 1) + '</td>';
         html += '<td><div class="rank-name"><span class="val">' + esc(row.name) + '</span></div></td>';
-        html += '<td>' + esc(row.club) + '</td>';
+        var pClubLogo = row.club && row.club !== 'Unspecified' ? (clubLogos[row.club] || '') : '';
+        html += '<td><div class="rank-name">' + (pClubLogo ? '<img class="club-emblem" src="' + esc(pClubLogo) + '" alt="">' : '') + '<span class="val">' + esc(row.club) + '</span></div></td>';
         html += '<td><div class="rank-name">' + countryFlag(row.nationality) + '<span class="val">' + esc(row.nationality) + '</span></div></td>';
         html += '<td class="rank-total">' + row.score + '</td>';
         html += '</tr>';
@@ -1565,9 +1736,11 @@
       html += '</tr></thead><tbody>';
       rows.forEach(function(row, i){
         var flag = tab === 'nationality' ? countryFlag(row.name) : '';
+        var clubImg = (tab === 'club' && row.name !== 'Unspecified' && clubLogos[row.name])
+          ? '<img class="club-emblem" src="' + esc(clubLogos[row.name]) + '" alt="">' : '';
         html += '<tr>';
         html += '<td class="rank-num">' + (i + 1) + '</td>';
-        html += '<td><div class="rank-name">' + flag + '<span class="val">' + esc(row.name) + '</span></div></td>';
+        html += '<td><div class="rank-name">' + flag + clubImg + '<span class="val">' + esc(row.name) + '</span></div></td>';
         html += '<td class="rank-count">' + row.count + '</td>';
         html += '<td class="rank-total">' + row.total + '</td>';
         html += '<td class="rank-avg">' + row.avg.toFixed(1) + '</td>';
@@ -1823,6 +1996,143 @@
     render();
   }
 
+  /* ---------------- roster switcher ---------------- */
+  function currentRosterName(){
+    var r = rosters.find(function(x){ return x.id === currentRosterId; });
+    return r ? r.name : 'Roster';
+  }
+
+  function updateRosterTitle(){
+    document.getElementById('current-roster-name').textContent = currentRosterName();
+  }
+
+  function resetViewStateForRosterSwitch(){
+    collapsedGroups = {};
+    state.groupBy = 'none';
+    state.filterValue = 'all';
+    state.searchQuery = '';
+    document.getElementById('group-select').value = 'none';
+    document.getElementById('filter-select').style.display = 'none';
+    document.getElementById('search-input').value = '';
+    document.getElementById('clear-search-btn').style.display = 'none';
+    rankingsState.tab = 'player';
+    rankingsState.sortField = 'score';
+    rankingsState.sortDir = 'desc';
+    rankingsState.dateStr = '';
+  }
+
+  function enterRoster(id){
+    document.getElementById('table-card').innerHTML = '<div class="empty-state"><h3>Loading roster…</h3></div>';
+    resetViewStateForRosterSwitch();
+    clubLogos = {};
+    scoreHistory = {};
+    return loadRosterData(id).then(function(loaded){
+      players = loaded;
+      updateRosterTitle();
+      updateFilterOptions();
+      render();
+    });
+  }
+
+  function switchRoster(id){
+    closeRosterMenu();
+    if (id === currentRosterId) return;
+    savePlayers().then(function(){
+      currentRosterId = id;
+      saveMeta();
+      enterRoster(id);
+    });
+  }
+
+  function createNewRoster(){
+    var name = prompt('Name for the new roster:', 'Roster ' + (rosters.length + 1));
+    if (name === null) return;
+    name = name.trim();
+    if (!name) return;
+    closeRosterMenu();
+    var id = newRosterId();
+    var payload = JSON.stringify({players: [], clubLogos: {}, scoreHistory: {}});
+    savePlayers().then(function(){
+      return writeKeyChain(rosterDataKey(id), payload);
+    }).then(function(){
+      rosters.push({id: id, name: name, createdAt: Date.now()});
+      currentRosterId = id;
+      saveMeta();
+      enterRoster(id);
+    });
+  }
+
+  function renameCurrentRoster(){
+    var r = rosters.find(function(x){ return x.id === currentRosterId; });
+    if (!r) return;
+    var name = prompt('Rename this roster:', r.name);
+    if (name === null) return;
+    name = name.trim();
+    if (!name) return;
+    r.name = name;
+    saveMeta();
+    updateRosterTitle();
+    closeRosterMenu();
+  }
+
+  function deleteCurrentRoster(){
+    if (rosters.length <= 1){
+      alert('You need at least one roster — create another roster before deleting this one.');
+      return;
+    }
+    var r = rosters.find(function(x){ return x.id === currentRosterId; });
+    if (!r) return;
+    if (!confirm('Delete "' + r.name + '" and all ' + players.length + ' of its players, club logos, and history? This cannot be undone.')) return;
+    var deletingId = currentRosterId;
+    rosters = rosters.filter(function(x){ return x.id !== deletingId; });
+    var nextId = rosters[0].id;
+    deleteKeyChain(rosterDataKey(deletingId));
+    currentRosterId = nextId;
+    saveMeta();
+    closeRosterMenu();
+    enterRoster(nextId);
+  }
+
+  function renderRosterMenu(){
+    var menu = document.getElementById('roster-menu');
+    var checkSvg = '<svg class="roster-menu-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+    var html = '<div class="roster-menu-list">';
+    rosters.forEach(function(r){
+      var active = r.id === currentRosterId;
+      html += '<button class="roster-menu-item' + (active ? ' active' : '') + '" data-roster-id="' + esc(r.id) + '">' +
+        (active ? checkSvg : '<span class="roster-menu-spacer"></span>') +
+        '<span class="val">' + esc(r.name) + '</span>' +
+      '</button>';
+    });
+    html += '</div><div class="roster-menu-divider"></div>';
+    html += '<button class="roster-menu-action" id="roster-new-btn">+ New roster</button>';
+    html += '<button class="roster-menu-action" id="roster-rename-btn">Rename this roster</button>';
+    html += '<button class="roster-menu-action roster-menu-danger" id="roster-delete-btn"' + (rosters.length <= 1 ? ' disabled' : '') + '>Delete this roster</button>';
+    menu.innerHTML = html;
+
+    Array.prototype.forEach.call(menu.querySelectorAll('.roster-menu-item'), function(btn){
+      btn.addEventListener('click', function(){ switchRoster(btn.getAttribute('data-roster-id')); });
+    });
+    document.getElementById('roster-new-btn').addEventListener('click', createNewRoster);
+    document.getElementById('roster-rename-btn').addEventListener('click', renameCurrentRoster);
+    document.getElementById('roster-delete-btn').addEventListener('click', deleteCurrentRoster);
+  }
+
+  function openRosterMenu(){
+    rosterMenuOpen = true;
+    renderRosterMenu();
+    document.getElementById('roster-menu').style.display = 'block';
+  }
+
+  function closeRosterMenu(){
+    rosterMenuOpen = false;
+    document.getElementById('roster-menu').style.display = 'none';
+  }
+
+  function toggleRosterMenu(){
+    if (rosterMenuOpen) closeRosterMenu(); else openRosterMenu();
+  }
+
   /* ---------------- group / filter controls ---------------- */
   var groupSelect = document.getElementById('group-select');
   var filterSelect = document.getElementById('filter-select');
@@ -2015,13 +2325,26 @@
 
   document.getElementById('add-player-btn').addEventListener('click', addPlayer);
 
+  document.getElementById('roster-switcher-btn').addEventListener('click', function(e){
+    e.stopPropagation();
+    toggleRosterMenu();
+  });
+  document.addEventListener('click', function(e){
+    if (!rosterMenuOpen) return;
+    var menu = document.getElementById('roster-menu');
+    var btn = document.getElementById('roster-switcher-btn');
+    if (!menu.contains(e.target) && !btn.contains(e.target)) closeRosterMenu();
+  });
+
   document.getElementById('rankings-btn').addEventListener('click', openRankings);
   document.getElementById('rankings-close').addEventListener('click', closeRankings);
   document.getElementById('rankings-overlay').addEventListener('click', function(e){
     if (e.target === this) closeRankings();
   });
   document.addEventListener('keydown', function(e){
-    if (e.key === 'Escape' && rankingsState.open) closeRankings();
+    if (e.key !== 'Escape') return;
+    if (rankingsState.open) closeRankings();
+    if (rosterMenuOpen) closeRosterMenu();
   });
   Array.prototype.forEach.call(document.querySelectorAll('.modal-tab'), function(tab){
     tab.addEventListener('click', function(){
@@ -2043,8 +2366,11 @@
 
   /* ---------------- init ---------------- */
   document.getElementById('table-card').innerHTML = '<div class="empty-state"><h3>Loading your roster…</h3></div>';
-  loadPlayers().then(function(loaded){
+  loadMetaAndMigrate().then(function(){
+    return loadRosterData(currentRosterId);
+  }).then(function(loaded){
     players = loaded;
+    updateRosterTitle();
     updateFilterOptions();
     render();
   });
